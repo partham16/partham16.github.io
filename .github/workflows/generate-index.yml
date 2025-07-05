@@ -1,57 +1,57 @@
-# .github/workflows/generate-index.yml
 name: Generate Index Page
+
 on:
   push:
     branches:
       - debug
       - main
   workflow_dispatch:
+
 permissions:
   contents: write
   pages: write
   id-token: write
+
 jobs:
   build-index:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          fetch-depth: 0
-      
-      - name: Generate Index from Template
+          python-version: "3.x"
+
+      - name: Generate index.html
         run: |
-          # Create a temporary file to hold the latest projects HTML
-          LATEST_PROJECTS_HTML_FILE=$(mktemp)
-          # Get the 5 most recently committed HTML files, format them as cards, and save to the temp file
-          for file in $(git log -5 --name-only --pretty=format: -- '*.html' | grep -v "index.html" | awk '!a[$0]++'); do
+          LATEST_PROJECTS_HTML_FILE="index.html"
+          echo "<!DOCTYPE html><html><head><title>Projects</title></head><body>" > $LATEST_PROJECTS_HTML_FILE
+          echo "<h1>Projects</h1>" >> $LATEST_PROJECTS_HTML_FILE
+          find . -name "*.html" ! -name "index.html" | sort | while read file; do
             title=$(echo "$file" | sed 's/\.html$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\b\(.\)/\u\1/g')
             echo "<div class='project-card' data-title='${title} ${file}'><a href='/${file}'>${title}</a><span class='path'>/${file}</span></div>" >> $LATEST_PROJECTS_HTML_FILE
           done
           # Create a temporary file to hold the JSON array of all project paths
           ALL_PROJECTS_JSON_FILE=$(mktemp)
           # Find all HTML files, format as a comma-separated list of strings, and save to the temp file
-          find . -type f -name "*.html" ! -name "index.html" -printf '"%p",\n' | sed 's|^\./||' | sort | tr -d '\n' | sed 's/,$//' > $ALL_PROJECTS_JSON_FILE
-          
-          # Use sed to replace placeholders in the template with content from our temp files
-          # 1. Start with a copy of the template
-          cp _template.txt index.html
-          # 2. Atomically replace both placeholders in the new index.html file
-          sed -i \
-            -e "/%%LATEST_PROJECTS%%/r $LATEST_PROJECTS_HTML_FILE" -e "s/%%LATEST_PROJECTS%%//" \
-            -e "/%%ALL_PROJECTS_JSON%%/r $ALL_PROJECTS_JSON_FILE" -e "s/%%ALL_PROJECTS_JSON%%//" \
-            index.html
-      
-      - name: Commit and Push Index
+          find . -name "*.html" ! -name "index.html" | sed 's|^\./||' | jq -R . | jq -s . > $ALL_PROJECTS_JSON_FILE
+          echo "<script>var allProjects = " > all-projects.js
+          cat $ALL_PROJECTS_JSON_FILE >> all-projects.js
+          echo ";</script>" >> all-projects.js
+          echo "<script src='all-projects.js'></script>" >> $LATEST_PROJECTS_HTML_FILE
+          echo "</body></html>" >> $LATEST_PROJECTS_HTML_FILE
+
+      - name: Commit index.html
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "docs: Auto-generate dynamic index.html from template"
           file_pattern: index.html
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
       
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
