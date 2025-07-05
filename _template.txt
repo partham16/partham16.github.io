@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Index</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #24292f;
+      --link-color: #0969da;
+      --border-color: #d0d7de;
+      --card-bg: #f6f8fa;
+      --header-border: #d8dee4;
+      --input-bg: #ffffff;
+      --input-border: #d0d7de;
+      --shadow-color: rgba(140, 149, 159, 0.15);
+      --tree-line-color: #d8dee4;
+    }
+    [data-theme="dark"] {
+      --bg-color: #0d1117;
+      --text-color: #c9d1d9;
+      --link-color: #58a6ff;
+      --border-color: #30363d;
+      --card-bg: #161b22;
+      --header-border: #21262d;
+      --input-bg: #0d1117;
+      --input-border: #30363d;
+      --shadow-color: rgba(0, 0, 0, 0.3);
+      --tree-line-color: #21262d;
+    }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; 
+      margin: 0; 
+      background-color: var(--bg-color); 
+      color: var(--text-color);
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .container { max-width: 800px; margin: 40px auto; padding: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--header-border); padding-bottom: 1em; }
+    h1 { font-size: 2em; font-weight: 600; margin: 0; }
+    h2 { font-size: 1.5em; margin-top: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: .3em; }
+    #search-box {
+      width: 100%; padding: 12px; margin-top: 2em; border: 1px solid var(--input-border);
+      border-radius: 6px; background-color: var(--input-bg); color: var(--text-color);
+      font-size: 1em; box-sizing: border-box;
+    }
+    .project-grid { display: grid; grid-template-columns: 1fr; gap: 1em; }
+    .project-card {
+      background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px;
+      padding: 1.5em; transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .project-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px var(--shadow-color); }
+    .project-card a { text-decoration: none; color: var(--link-color); font-weight: 600; font-size: 1.2em; }
+    .project-card .path { font-size: 0.85em; color: #8b949e; display: block; margin-top: 8px; font-family: monospace; word-break: break-all; }
+    #theme-toggle {
+      padding: 8px 12px; background-color: var(--card-bg); border: 1px solid var(--border-color);
+      color: var(--text-color); border-radius: 6px; cursor: pointer;
+    }
+    /* Tree View Styles */
+    .tree { list-style: none; padding: 0; padding-left: 20px; }
+    .tree-node { padding: 4px 0; }
+    .tree-node .label { cursor: pointer; display: inline-block; padding: 2px 5px; border-radius: 4px; }
+    .tree-node .label:hover { background-color: var(--card-bg); }
+    .tree-node .icon { margin-right: 8px; width: 1em; display: inline-block; }
+    .tree-node ul { list-style: none; padding-left: 25px; border-left: 1px solid var(--tree-line-color); display: none; }
+    .tree-node.open > ul { display: block; }
+    .tree-node.open > .label > .icon::before { content: '📂'; }
+    .tree-node:not(.open) > .label > .icon::before { content: '📁'; }
+    .tree-node.file > .label > .icon::before { content: '📄'; }
+    .tree-node.file .label { cursor: default; }
+    .tree-node.file a { color: var(--link-color); text-decoration: none; }
+    .tree-node.file a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>My Projects</h1>
+      <button id="theme-toggle" title="Toggle theme">🌓</button>
+    </header>
+
+    <input type="search" id="search-box" placeholder="Search all projects...">
+
+    <main>
+      <section id="latest-updates">
+        <h2>Latest Updates</h2>
+        <div class="project-grid">
+          <!-- The GitHub Actions workflow will inject the latest project cards here. -->
+          %%LATEST_PROJECTS%%
+        </div>
+      </section>
+      <section id="full-directory">
+        <h2>Full Directory</h2>
+        <ul id="tree-root" class="tree">
+          <!-- This will be populated by JavaScript -->
+        </ul>
+      </section>
+    </main>
+  </div>
+  <script>
+    // --- DATA ---
+    // The GitHub Actions workflow will inject a JSON array of file paths here.
+    const filePaths = [%%ALL_PROJECTS_JSON%%];
+
+    // --- CORE LOGIC ---
+    function buildFileTree(paths) {
+      const tree = {};
+      paths.forEach(path => {
+        let currentLevel = tree;
+        const parts = path.split('/');
+        parts.forEach((part, index) => {
+          if (!currentLevel[part]) {
+            currentLevel[part] = {};
+          }
+          if (index < parts.length - 1) {
+            currentLevel = currentLevel[part];
+          }
+        });
+      });
+      return tree;
+    }
+
+    function renderTree(node, pathPrefix = '') {
+      let html = '';
+      Object.keys(node).sort().forEach(key => {
+        const currentPath = pathPrefix ? `${pathPrefix}/${key}` : key;
+        const isFile = key.endsWith('.html');
+        
+        if (isFile) {
+          html += `<li class="tree-node file"><span class="label"><span class="icon"></span><a href="/${currentPath}">${key.replace('.html', '')}</a></span></li>`;
+        } else {
+          const childrenHtml = renderTree(node[key], currentPath);
+          if (childrenHtml) {
+            html += `<li class="tree-node folder"><span class="label"><span class="icon"></span>${key}</span><ul>${childrenHtml}</ul></li>`;
+          }
+        }
+      });
+      return html;
+    }
+
+    // --- INITIALIZATION ---
+    if (filePaths.length > 0) {
+        const fileTree = buildFileTree(filePaths);
+        const treeRoot = document.getElementById('tree-root');
+        treeRoot.innerHTML = renderTree(fileTree);
+    }
+
+
+    // --- EVENT LISTENERS ---
+    document.getElementById('tree-root').addEventListener('click', (e) => {
+      const label = e.target.closest('.label');
+      if (label && label.parentElement.classList.contains('folder')) {
+        label.parentElement.classList.toggle('open');
+      }
+    });
+    
+    // Theme Toggler
+    const themeToggle = document.getElementById('theme-toggle');
+    const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', currentTheme);
+
+    themeToggle.addEventListener('click', () => {
+      let theme = document.documentElement.getAttribute('data-theme');
+      theme = (theme === 'dark') ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    });
+
+    // Live Search (updated for tree view)
+    const searchBox = document.getElementById('search-box');
+    searchBox.addEventListener('keyup', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      
+      // Handle project cards
+      document.querySelectorAll('.project-card').forEach(card => {
+        card.style.display = card.getAttribute('data-title').toLowerCase().includes(searchTerm) ? 'block' : 'none';
+      });
+
+      // Handle tree view
+      document.querySelectorAll('#tree-root li').forEach(li => {
+        const text = li.textContent.toLowerCase();
+        const isMatch = text.includes(searchTerm);
+        li.style.display = isMatch ? '' : 'none';
+        
+        if (isMatch && searchTerm) {
+          let parent = li.parentElement.closest('.folder');
+          while(parent) {
+            parent.classList.add('open');
+            parent.style.display = '';
+            parent = parent.parentElement.closest('.folder');
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
