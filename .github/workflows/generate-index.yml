@@ -1,0 +1,147 @@
+# .github/workflows/generate-index.yml
+#
+# This workflow automatically generates a dynamic and polished index.html file
+# with light/dark modes, live search, and two project views.
+
+name: Generate Index Page
+
+on:
+  # Run this workflow every time a change is pushed to the main branch
+  push:
+    branches:
+      - main
+      - master
+  
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Give the workflow write permissions to push the new index.html
+permissions:
+  contents: write
+
+jobs:
+  build-index:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Check out the repository's code.
+      #    fetch-depth: 0 is needed to get the full git history for commit dates.
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Generate the dynamic index.html file
+      - name: Generate HTML Index
+        run: |
+          # Start the HTML file with a title and some modern styling and JavaScript
+          cat <<'EOF' > index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Project Index</title>
+            <style>
+              :root {
+                --bg-color: #ffffff;
+                --text-color: #24292f;
+                --link-color: #0969da;
+                --border-color: #d0d7de;
+                --card-bg: #f6f8fa;
+                --header-border: #d8dee4;
+                --input-bg: #ffffff;
+                --input-border: #d0d7de;
+                --shadow-color: rgba(140, 149, 159, 0.15);
+              }
+              [data-theme="dark"] {
+                --bg-color: #0d1117;
+                --text-color: #c9d1d9;
+                --link-color: #58a6ff;
+                --border-color: #30363d;
+                --card-bg: #161b22;
+                --header-border: #21262d;
+                --input-bg: #0d1117;
+                --input-border: #30363d;
+                --shadow-color: rgba(0, 0, 0, 0.3);
+              }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"; 
+                margin: 0; 
+                background-color: var(--bg-color); 
+                color: var(--text-color);
+                transition: background-color 0.2s, color 0.2s;
+              }
+              .container { max-width: 800px; margin: 40px auto; padding: 20px; }
+              header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--header-border); padding-bottom: 1em; }
+              h1 { font-size: 2em; font-weight: 600; margin: 0; }
+              h2 { font-size: 1.5em; margin-top: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: .3em; }
+              #search-box {
+                width: 100%;
+                padding: 12px;
+                margin-top: 2em;
+                border: 1px solid var(--input-border);
+                border-radius: 6px;
+                background-color: var(--input-bg);
+                color: var(--text-color);
+                font-size: 1em;
+                box-sizing: border-box;
+              }
+              .project-grid { display: grid; grid-template-columns: 1fr; gap: 1em; }
+              .project-card {
+                background-color: var(--card-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                padding: 1.5em;
+                transition: transform 0.2s, box-shadow 0.2s;
+              }
+              .project-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px var(--shadow-color); }
+              .project-card a { text-decoration: none; color: var(--link-color); font-weight: 600; font-size: 1.2em; }
+              .project-card .path { font-size: 0.85em; color: #8b949e; display: block; margin-top: 8px; font-family: monospace; word-break: break-all; }
+              #theme-toggle {
+                padding: 8px 12px;
+                background-color: var(--card-bg);
+                border: 1px solid var(--border-color);
+                color: var(--text-color);
+                border-radius: 6px;
+                cursor: pointer;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <header>
+                <h1>My Projects</h1>
+                <button id="theme-toggle" title="Toggle theme">🌓</button>
+              </header>
+
+              <input type="search" id="search-box" placeholder="Search all projects...">
+
+              <main>
+                <section id="latest-updates">
+                  <h2>Latest Updates</h2>
+                  <div class="project-grid">
+          EOF
+
+          # Find the 5 most recently committed HTML files
+          git log --pretty=format: --name-only -- '*.html' | \
+          grep -v "index.html" | \
+          awk '!seen[$0]++' | \
+          head -n 5 | \
+          while read -r file; do
+            title=$(echo "$file" | sed 's/\.html$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\b\(.\)/\u\1/g')
+            echo "                    <div class='project-card' data-title='${title} ${file}'><a href='/$file'>$title</a><span class='path'>/$file</span></div>" >> index.html
+          done
+
+          # Start the full directory list
+          cat <<'EOF' >> index.html
+                  </div>
+                </section>
+                <section id="full-directory">
+                  <h2>Full Directory</h2>
+                  <div class="project-grid" id="full-project-list">
+          EOF
+
+          # Find all HTML files (excluding index.html), sort them, and create list items
+          find . -type f -name "*.html" ! -name "index.html" | sed 's|^\./||' | sort | while read -r file; do
+            title=$(echo "$file" | sed 's/\.html$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\b\(.\)/\u\1/g')
+            echo "                    <div class='project-card' data-title='${title} ${file}'><a href='/$file'>$title</a><span class='path'>/$file</sp
