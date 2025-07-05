@@ -1,20 +1,15 @@
 # .github/workflows/generate-index.yml
-#
-# This workflow uses a template file (_template.txt) to generate a dynamic
-# and polished index.html file. It runs on the 'debug' branch for safe testing.
-
 name: Generate Index Page
-
 on:
   push:
     branches:
       - debug
       - main
   workflow_dispatch:
-
 permissions:
   contents: write
-
+  pages: write
+  id-token: write
 jobs:
   build-index:
     runs-on: ubuntu-latest
@@ -23,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      
       - name: Generate Index from Template
         run: |
           # Create a temporary file to hold the latest projects HTML
@@ -33,7 +28,6 @@ jobs:
             title=$(echo "$file" | sed 's/\.html$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\b\(.\)/\u\1/g')
             echo "<div class='project-card' data-title='${title} ${file}'><a href='/${file}'>${title}</a><span class='path'>/${file}</span></div>" >> $LATEST_PROJECTS_HTML_FILE
           done
-
           # Create a temporary file to hold the JSON array of all project paths
           ALL_PROJECTS_JSON_FILE=$(mktemp)
           # Find all HTML files, format as a comma-separated list of strings, and save to the temp file
@@ -47,7 +41,7 @@ jobs:
             -e "/%%LATEST_PROJECTS%%/r $LATEST_PROJECTS_HTML_FILE" -e "s/%%LATEST_PROJECTS%%//" \
             -e "/%%ALL_PROJECTS_JSON%%/r $ALL_PROJECTS_JSON_FILE" -e "s/%%ALL_PROJECTS_JSON%%//" \
             index.html
-
+      
       - name: Commit and Push Index
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
@@ -55,3 +49,15 @@ jobs:
           file_pattern: index.html
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: '.'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
