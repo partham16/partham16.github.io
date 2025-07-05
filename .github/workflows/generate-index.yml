@@ -33,9 +33,7 @@ jobs:
             title=$(echo "$file" | sed 's/\.html$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\b\(.\)/\u\1/g')
             echo "<div class='project-card' data-title='${title} ${file}'><a href='/${file}'>${title}</a><span class='path'>/${file}</span></div>" >> $LATEST_PROJECTS_HTML_FILE
           done
-          # Create a temporary file to hold the JSON array of all project paths
           ALL_PROJECTS_JSON_FILE=$(mktemp)
-          # Find all HTML files, format as a comma-separated list of strings, and save to the temp file
           find . -name "*.html" ! -name "index.html" | sed 's|^\./||' | jq -R . | jq -s . > $ALL_PROJECTS_JSON_FILE
           echo "<script>var allProjects = " > all-projects.js
           cat $ALL_PROJECTS_JSON_FILE >> all-projects.js
@@ -49,15 +47,21 @@ jobs:
           file_pattern: index.html
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
-      
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-      
+
+  deploy:
+    needs: build-index
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
