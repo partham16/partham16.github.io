@@ -107,7 +107,7 @@ jobs:
           EOF
 
           # Generate the JSON array of all files and append it
-          find . -type f -name "*.html" ! -name "index.html" ! -name "_template.txt" | sed 's|^\./||' | sort | jq -s '.' >> index.html
+          find . -type f -name "*.html" ! -name "index.html" ! -name "_template.txt" | sed 's|^\./||' | sort | jq -R -s '.' >> index.html
 
           # Append the rest of the JavaScript and closing body/html tags
           cat <<'EOF' >> index.html
