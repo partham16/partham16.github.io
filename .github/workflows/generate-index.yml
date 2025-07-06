@@ -121,6 +121,7 @@ jobs:
           done
 
           # Append the middle part of the HTML
+          # We use cat <<'EOF' here because the script block contains characters that would be misinterpreted by the shell
           cat <<'EOF' >> index.html
                   </div>
                 </section>
@@ -196,7 +197,7 @@ jobs:
               themeToggle.addEventListener('click', () => {
                 let theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
                 document.documentElement.setAttribute('data-theme', theme);
-localStorage.setItem('theme', theme);
+                localStorage.setItem('theme', theme);
               });
               const searchBox = document.getElementById('search-box');
               searchBox.addEventListener('keyup', (e) => {
