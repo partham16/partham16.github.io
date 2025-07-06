@@ -114,10 +114,10 @@ jobs:
           sed -i "s|%%PAGE_TITLE%%|${PAGE_TITLE}|g" index.html
 
           # Generate and append the "Latest Updates" cards, excluding specific folders
-          for file in \$(git ls-files -z -- '*.html' | grep -v -z '^docs/' | grep -v -z '^favicons/' | xargs -0 -n1 -I{} -- git log -1 --format="%ct {}" -- {} | sort -rn | head -n 5 | awk '{print \$2}' | grep -v "index.html"); do
-            clean_file=\$(echo "\$file" | sed 's|^\\./||')
-            title=\$(echo "\$clean_file" | sed 's/\\.html\$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\\b\\(.\\)/\\u\\1/g')
-            echo "<div class='project-card' data-title='\${title} \${clean_file}'><a href='/\${clean_file}'>\${title}</a><span class='path'>/\${clean_file}</span></div>" >> index.html
+          for file in $(git ls-files -z -- '*.html' | grep -v -z '^docs/' | grep -v -z '^favicons/' | xargs -0 -n1 -I{} -- git log -1 --format="%ct {}" -- {} | sort -rn | head -n 5 | awk '{print $2}' | grep -v "index.html"); do
+            clean_file=$(echo "$file" | sed 's|^\./||')
+            title=$(echo "$clean_file" | sed 's/\.html$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\b\(.\)/\u\1/g')
+            echo "<div class='project-card' data-title='${title} ${clean_file}'><a href='/${clean_file}'>${title}</a><span class='path'>/${clean_file}</span></div>" >> index.html
           done
 
           # Append the middle part of the HTML
