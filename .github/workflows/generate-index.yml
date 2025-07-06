@@ -23,6 +23,9 @@ jobs:
           fetch-depth: 0
 
       - name: Generate index.html
+        env:
+          # Use a repository variable for the title, with a fallback default.
+          PAGE_TITLE: ${{ vars.PAGE_TITLE || 'My Projects' }}
         run: |
           # Start writing the new index.html with the full head and styles
           cat <<'EOF' > index.html
@@ -31,7 +34,7 @@ jobs:
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Project Index</title>
+            <title>%%PAGE_TITLE%%</title>
             <style>
               :root {
                 --bg-color: #ffffff; --text-color: #24292f; --link-color: #0969da;
@@ -50,6 +53,8 @@ jobs:
               header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--header-border); padding-bottom: 1em; }
               h1 { font-size: 2em; font-weight: 600; margin: 0; }
               h2 { font-size: 1.5em; margin-top: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: .3em; }
+              .section-header { display: flex; justify-content: space-between; align-items: center; }
+              .tree-controls button { font-size: 0.8em; padding: 4px 8px; margin-left: 8px; background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; cursor: pointer; }
               #search-box { width: 100%; padding: 12px; margin-top: 2em; border: 1px solid var(--input-border); border-radius: 6px; background-color: var(--input-bg); color: var(--text-color); font-size: 1em; box-sizing: border-box; }
               .project-grid { display: grid; grid-template-columns: 1fr; gap: 1em; }
               .project-card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 1.5em; transition: transform 0.2s, box-shadow 0.2s; }
@@ -57,7 +62,7 @@ jobs:
               .project-card a { text-decoration: none; color: var(--link-color); font-weight: 600; font-size: 1.2em; }
               .project-card .path { font-size: 0.85em; color: #8b949e; display: block; margin-top: 8px; font-family: monospace; word-break: break-all; }
               #theme-toggle { padding: 8px 12px; background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; cursor: pointer; }
-              .tree { list-style: none; padding: 0; padding-left: 20px; }
+              .tree { list-style: none; padding: 0; padding-left: 20px; margin-top: 1em; }
               .tree-node { padding: 4px 0; }
               .tree-node .label { cursor: pointer; display: inline-block; padding: 2px 5px; border-radius: 4px; }
               .tree-node .label:hover { background-color: var(--card-bg); }
@@ -65,7 +70,7 @@ jobs:
               .tree-node ul { list-style: none; padding-left: 25px; border-left: 1px solid var(--tree-line-color); display: none; }
               .tree-node.open > ul { display: block; }
               .tree-node.open > .label > .icon::before { content: '📂'; }
-              .tree-node:not(.open) > .label > .icon::before { content: '📁'; }
+              .tree-node:not(.open) > .label > .icon::before { content: '�'; }
               .tree-node.file > .label > .icon::before { content: '📄'; }
               .tree-node.file .label { cursor: default; }
               .tree-node.file a { color: var(--link-color); text-decoration: none; }
@@ -85,6 +90,9 @@ jobs:
                   <div class="project-grid">
           EOF
 
+          # Replace the title placeholder with the environment variable
+          sed -i "s|%%PAGE_TITLE%%|${PAGE_TITLE}|g" index.html
+
           # Generate and append the "Latest Updates" cards
           for file in $(git log -5 --name-only --pretty=format: -- '*.html' | grep -v "index.html" | awk '!a[$0]++'); do
             clean_file=$(echo "$file" | sed 's|^\./||')
@@ -97,7 +105,13 @@ jobs:
                   </div>
                 </section>
                 <section id="full-directory">
-                  <h2>Full Directory</h2>
+                  <div class="section-header">
+                    <h2>Full Directory</h2>
+                    <div class="tree-controls">
+                      <button id="expand-all-btn">Expand All</button>
+                      <button id="collapse-all-btn">Collapse All</button>
+                    </div>
+                  </div>
                   <ul id="tree-root" class="tree"></ul>
                 </section>
               </main>
@@ -149,6 +163,12 @@ jobs:
                 if (label && label.parentElement.classList.contains('folder')) {
                   label.parentElement.classList.toggle('open');
                 }
+              });
+              document.getElementById('expand-all-btn').addEventListener('click', () => {
+                document.querySelectorAll('.tree-node.folder').forEach(folder => folder.classList.add('open'));
+              });
+              document.getElementById('collapse-all-btn').addEventListener('click', () => {
+                document.querySelectorAll('.tree-node.folder').forEach(folder => folder.classList.remove('open'));
               });
               const themeToggle = document.getElementById('theme-toggle');
               const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
