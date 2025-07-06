@@ -29,9 +29,11 @@ jobs:
           LINKEDIN_URL: ${{ vars.LINKEDIN_URL || '#' }}
           GH_URL: ${{ vars.GH_URL || '#' }}
           STACKOVERFLOW_URL: ${{ vars.STACKOVERFLOW_URL || '#' }}
+          WEBSITE_URL: ${{ vars.WEBSITE_URL || '#' }}
         run: |
           # Start writing the new index.html with the full head and styles
-          cat <<'EOF' > index.html
+          # Note: We use cat <<EOF (no quotes) to allow shell variable expansion for the URLs.
+          cat <<EOF > index.html
           <!DOCTYPE html>
           <html lang="en">
           <head>
@@ -59,7 +61,9 @@ jobs:
               .credentials { display: flex; gap: 0.75em; margin-top: 1.5em; flex-wrap: wrap; }
               .credential-link { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; text-decoration: none; color: var(--text-color); transition: background-color 0.2s; }
               .credential-link:hover { background-color: var(--border-color); }
-              .credential-link svg { width: 20px; height: 20px; fill: currentColor; }
+              .credential-link img, .credential-link svg { width: 20px; height: 20px; }
+              .credential-link svg { fill: currentColor; }
+              [data-theme="dark"] .credential-link img { filter: invert(1) brightness(2); }
               .section-header { display: flex; justify-content: space-between; align-items: center; }
               .tree-controls button { font-size: 0.8em; padding: 4px 8px; margin-left: 8px; background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; cursor: pointer; }
               #search-box { width: 100%; padding: 12px; margin-top: 2em; border: 1px solid var(--input-border); border-radius: 6px; background-color: var(--input-bg); color: var(--text-color); font-size: 1em; box-sizing: border-box; }
@@ -92,9 +96,10 @@ jobs:
               </header>
               
               <div class="credentials">
-                <a href="${LINKEDIN_URL}" target="_blank" rel="noopener noreferrer" class="credential-link" title="LinkedIn"><svg viewBox="0 0 24 24"><path d="M20.5 2h-17A1.5 1.5 0 0 0 2 3.5v17A1.5 1.5 0 0 0 3.5 22h17a1.5 1.5 0 0 0 1.5-1.5v-17A1.5 1.5 0 0 0 20.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 1 1 8.25 6.5 1.75 1.75 0 0 1 6.5 8.25zM19 19h-3v-4.75c0-1.4-1.2-2.5-2.5-2.5S11 12.85 11 14.25V19h-3v-9h2.9v1.3a3.11 3.11 0 0 1 2.6-1.4c2.5 0 4.5 2.2 4.5 5.1z"></path></svg><span>LinkedIn</span></a>
-                <a href="${GH_URL}" target="_blank" rel="noopener noreferrer" class="credential-link" title="GitHub"><svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg><span>GitHub</span></a>
-                <a href="${STACKOVERFLOW_URL}" target="_blank" rel="noopener noreferrer" class="credential-link" title="Stack Overflow"><svg viewBox="0 0 384 512"><path d="M290.7 311L95 269.7 86.8 309l195.7 41zm51-87L188.2 95.7l-25.5 30.8 153.5 128.3zm-31.2-70.1l-188.3 85.8 20.1 31.1 188.3-85.8zM32 396.4l195.7 41.1-12.7 32.6L32 430zM320 32L143.7 220.2l-25.5 30.8L320 62.8zM48 320l195.7 41 12.7-32.6L48 320z"></path></svg><span>Stack Overflow</span></a>
+                <a href="${WEBSITE_URL}" target="_blank" rel="noopener noreferrer" class="credential-link" title="Website"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg><span>Website</span></a>
+                <a href="${LINKEDIN_URL}" target="_blank" rel="noopener noreferrer" class="credential-link" title="LinkedIn"><img src="https://www.google.com/s2/favicons?domain=linkedin.com" onerror="this.onerror=null;this.src='/favicons/linkedin.ico';"><span>LinkedIn</span></a>
+                <a href="${GH_URL}" target="_blank" rel="noopener noreferrer" class="credential-link" title="GitHub"><img src="https://www.google.com/s2/favicons?domain=github.com" onerror="this.onerror=null;this.src='/favicons/github.ico';"><span>GitHub</span></a>
+                <a href="${STACKOVERFLOW_URL}" target="_blank" rel="noopener noreferrer" class="credential-link" title="Stack Overflow"><img src="https://www.google.com/s2/favicons?domain=stackoverflow.com" onerror="this.onerror=null;this.src='/favicons/stackoverflow.ico';"><span>Stack Overflow</span></a>
                 <a href="/docs/resume.pdf" target="_blank" rel="noopener noreferrer" class="credential-link" title="Resume"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"></path></svg><span>Resume</span></a>
               </div>
 
@@ -108,11 +113,11 @@ jobs:
           # Replace the title placeholder in both <title> and <h1>
           sed -i "s|%%PAGE_TITLE%%|${PAGE_TITLE}|g" index.html
 
-          # Generate and append the "Latest Updates" cards
-          for file in $(git ls-files -z -- '*.html' | grep -v -z '^docs/' | xargs -0 -n1 -I{} -- git log -1 --format="%ct {}" -- {} | sort -rn | head -n 5 | awk '{print $2}' | grep -v "index.html"); do
-            clean_file=$(echo "$file" | sed 's|^\./||')
-            title=$(echo "$clean_file" | sed 's/\.html$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\b\(.\)/\u\1/g')
-            echo "<div class='project-card' data-title='${title} ${clean_file}'><a href='/${clean_file}'>${title}</a><span class='path'>/${clean_file}</span></div>" >> index.html
+          # Generate and append the "Latest Updates" cards, excluding specific folders
+          for file in \$(git ls-files -z -- '*.html' | grep -v -z '^docs/' | grep -v -z '^favicons/' | xargs -0 -n1 -I{} -- git log -1 --format="%ct {}" -- {} | sort -rn | head -n 5 | awk '{print \$2}' | grep -v "index.html"); do
+            clean_file=\$(echo "\$file" | sed 's|^\\./||')
+            title=\$(echo "\$clean_file" | sed 's/\\.html\$//; s|/| : |g; s/-/ /g; s/_/ /g; s/\\b\\(.\\)/\\u\\1/g')
+            echo "<div class='project-card' data-title='\${title} \${clean_file}'><a href='/\${clean_file}'>\${title}</a><span class='path'>/\${clean_file}</span></div>" >> index.html
           done
 
           # Append the middle part of the HTML
@@ -135,8 +140,8 @@ jobs:
               const filePaths = 
           EOF
 
-          # Generate the JSON array of all files and append it
-          find . -type f -name "*.html" ! -name "index.html" ! -path "./docs/*" | sed 's|^\./||' | sort | jq -R -s 'split("\n") | map(select(length > 0))' >> index.html
+          # Generate the JSON array of all files and append it, excluding specific folders
+          find . -type f -name "*.html" ! -name "index.html" ! -path "./docs/*" ! -path "./favicons/*" | sed 's|^\./||' | sort | jq -R -s 'split("\n") | map(select(length > 0))' >> index.html
 
           # Append the rest of the JavaScript and closing body/html tags
           cat <<'EOF' >> index.html
@@ -191,7 +196,7 @@ jobs:
               themeToggle.addEventListener('click', () => {
                 let theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
                 document.documentElement.setAttribute('data-theme', theme);
-                localStorage.setItem('theme', theme);
+localStorage.setItem('theme', theme);
               });
               const searchBox = document.getElementById('search-box');
               searchBox.addEventListener('keyup', (e) => {
