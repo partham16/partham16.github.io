@@ -70,7 +70,7 @@ jobs:
               .tree-node ul { list-style: none; padding-left: 25px; border-left: 1px solid var(--tree-line-color); display: none; }
               .tree-node.open > ul { display: block; }
               .tree-node.open > .label > .icon::before { content: '📂'; }
-              .tree-node:not(.open) > .label > .icon::before { content: '�'; }
+              .tree-node:not(.open) > .label > .icon::before { content: '📁'; }
               .tree-node.file > .label > .icon::before { content: '📄'; }
               .tree-node.file .label { cursor: default; }
               .tree-node.file a { color: var(--link-color); text-decoration: none; }
