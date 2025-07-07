@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partha Mandal</title>
+  <style>
+    :root {
+      --bg-color: #ffffff; --text-color: #24292f; --link-color: #0969da;
+      --border-color: #d0d7de; --card-bg: #f6f8fa; --header-border: #d8dee4;
+      --input-bg: #ffffff; --input-border: #d0d7de; --shadow-color: rgba(140, 149, 159, 0.15);
+      --tree-line-color: #d8dee4;
+    }
+    [data-theme="dark"] {
+      --bg-color: #0d1117; --text-color: #c9d1d9; --link-color: #58a6ff;
+      --border-color: #30363d; --card-bg: #161b22; --header-border: #21262d;
+      --input-bg: #0d1117; --input-border: #30363d; --shadow-color: rgba(0, 0, 0, 0.3);
+      --tree-line-color: #21262d;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; background-color: var(--bg-color); color: var(--text-color); transition: background-color 0.2s, color 0.2s; }
+    .container { max-width: 800px; margin: 40px auto; padding: 20px; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--header-border); padding-bottom: 1em; }
+    h1 { font-size: 2em; font-weight: 600; margin: 0; }
+    h2 { font-size: 1.5em; margin-top: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: .3em; }
+    .credentials { display: flex; gap: 0.75em; margin-top: 1.5em; flex-wrap: wrap; }
+    .credential-link { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; text-decoration: none; color: var(--text-color); transition: background-color 0.2s; }
+    .credential-link:hover { background-color: var(--border-color); }
+    .credential-link img, .credential-link svg { width: 20px; height: 20px; }
+    .credential-link svg { fill: currentColor; }
+    [data-theme="dark"] .credential-link img { filter: invert(1) brightness(2); }
+    .section-header { display: flex; justify-content: space-between; align-items: center; }
+    .tree-controls button { font-size: 0.8em; padding: 4px 8px; margin-left: 8px; background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; cursor: pointer; }
+    #search-box { width: 100%; padding: 12px; margin-top: 2em; border: 1px solid var(--input-border); border-radius: 6px; background-color: var(--input-bg); color: var(--text-color); font-size: 1em; box-sizing: border-box; }
+    .project-grid { display: grid; grid-template-columns: 1fr; gap: 1em; }
+    .project-card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 1.5em; transition: transform 0.2s, box-shadow 0.2s; }
+    .project-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px var(--shadow-color); }
+    .project-card a { text-decoration: none; color: var(--link-color); font-weight: 600; font-size: 1.2em; }
+    .project-card .path { font-size: 0.85em; color: #8b949e; display: block; margin-top: 8px; font-family: monospace; word-break: break-all; }
+    #theme-toggle { padding: 8px 12px; background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; cursor: pointer; }
+    .tree { list-style: none; padding: 0; padding-left: 20px; margin-top: 1em; }
+    .tree-node { padding: 4px 0; }
+    .tree-node .label { cursor: pointer; display: inline-block; padding: 2px 5px; border-radius: 4px; }
+    .tree-node .label:hover { background-color: var(--card-bg); }
+    .tree-node .icon { margin-right: 8px; width: 1em; display: inline-block; }
+    .tree-node ul { list-style: none; padding-left: 25px; border-left: 1px solid var(--tree-line-color); display: none; }
+    .tree-node.open > ul { display: block; }
+    .tree-node.open > .label > .icon::before { content: '📂'; }
+    .tree-node:not(.open) > .label > .icon::before { content: '📁'; }
+    .tree-node.file > .label > .icon::before { content: '📄'; }
+    .tree-node.file .label { cursor: default; }
+    .tree-node.file a { color: var(--link-color); text-decoration: none; }
+    .tree-node.file a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Partha Mandal</h1>
+      <button id="theme-toggle" title="Toggle theme">🌓</button>
+    </header>
+    
+    <div class="credentials">
+      <a href="https://partham16.github.io/" target="_blank" rel="noopener noreferrer" class="credential-link" title="Website"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg><span>Website</span></a>
+      <a href="http://www.linkedin.com/in/partham16" target="_blank" rel="noopener noreferrer" class="credential-link" title="LinkedIn"><img src="https://www.google.com/s2/favicons?domain=linkedin.com" onerror="this.onerror=null;this.src='/favicons/linkedin.ico';"><span>LinkedIn</span></a>
+      <a href="https://www.github.com/partham16" target="_blank" rel="noopener noreferrer" class="credential-link" title="GitHub"><img src="https://www.google.com/s2/favicons?domain=github.com" onerror="this.onerror=null;this.src='/favicons/github.ico';"><span>GitHub</span></a>
+      <a href="https://stackoverflow.com/users/13070032/partha-mandal" target="_blank" rel="noopener noreferrer" class="credential-link" title="Stack Overflow"><img src="https://www.google.com/s2/favicons?domain=stackoverflow.com" onerror="this.onerror=null;this.src='/favicons/stackoverflow.ico';"><span>Stack Overflow</span></a>
+      <a href="/docs/resume.pdf" target="_blank" rel="noopener noreferrer" class="credential-link" title="Resume"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"></path></svg><span>Resume</span></a>
+    </div>
+
+    <input type="search" id="search-box" placeholder="Search all projects...">
+    <main>
+      <section id="latest-updates">
+        <h2>Latest Updates</h2>
+        <div class="project-grid">
+<div class='project-card' data-title='Hackathon : 2025 : GEO Gen Ai Agent Optimization hackathon/2025/GEO-gen-ai-agent-optimization.html'><a href='/hackathon/2025/GEO-gen-ai-agent-optimization.html'>Hackathon : 2025 : GEO Gen Ai Agent Optimization</a><span class='path'>/hackathon/2025/GEO-gen-ai-agent-optimization.html</span></div>
+        </div>
+      </section>
+      <section id="full-directory">
+        <div class="section-header">
+          <h2>Full Directory</h2>
+          <div class="tree-controls">
+            <button id="expand-all-btn">Expand All</button>
+            <button id="collapse-all-btn">Collapse All</button>
+          </div>
+        </div>
+        <ul id="tree-root" class="tree"></ul>
+      </section>
+    </main>
+  </div>
+  <script>
+    const filePaths = 
+[
+  "hackathon/2025/GEO-gen-ai-agent-optimization.html"
+]
+    ;
+    function buildFileTree(paths) {
+      const tree = {};
+      paths.forEach(path => {
+        let currentLevel = tree;
+        const parts = path.split('/');
+        parts.forEach((part, index) => {
+          if (!currentLevel[part]) { currentLevel[part] = {}; }
+          if (index < parts.length - 1) { currentLevel = currentLevel[part]; }
+        });
+      });
+      return tree;
+    }
+    function renderTree(node, pathPrefix = '') {
+      let html = '';
+      Object.keys(node).sort().forEach(key => {
+        const currentPath = pathPrefix ? `${pathPrefix}/${key}` : key;
+        const isFile = key.endsWith('.html');
+        if (isFile) {
+          html += `<li class="tree-node file"><span class="label"><span class="icon"></span><a href="/${currentPath}">${key.replace('.html', '')}</a></span></li>`;
+        } else {
+          const childrenHtml = renderTree(node[key], currentPath);
+          if (childrenHtml) {
+            html += `<li class="tree-node folder"><span class="label"><span class="icon"></span>${key}</span><ul>${childrenHtml}</ul></li>`;
+          }
+        }
+      });
+      return html;
+    }
+    if (filePaths && filePaths.length > 0) {
+      const fileTree = buildFileTree(filePaths);
+      document.getElementById('tree-root').innerHTML = renderTree(fileTree);
+    }
+    document.getElementById('tree-root').addEventListener('click', (e) => {
+      const label = e.target.closest('.label');
+      if (label && label.parentElement.classList.contains('folder')) {
+        label.parentElement.classList.toggle('open');
+      }
+    });
+    document.getElementById('expand-all-btn').addEventListener('click', () => {
+      document.querySelectorAll('.tree-node.folder').forEach(folder => folder.classList.add('open'));
+    });
+    document.getElementById('collapse-all-btn').addEventListener('click', () => {
+      document.querySelectorAll('.tree-node.folder').forEach(folder => folder.classList.remove('open'));
+    });
+    const themeToggle = document.getElementById('theme-toggle');
+    const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    themeToggle.addEventListener('click', () => {
+      let theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    });
+    const searchBox = document.getElementById('search-box');
+    searchBox.addEventListener('keyup', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      document.querySelectorAll('.project-card').forEach(card => {
+        card.style.display = card.getAttribute('data-title').toLowerCase().includes(searchTerm) ? 'block' : 'none';
+      });
+      document.querySelectorAll('#tree-root li').forEach(li => {
+        const isMatch = li.textContent.toLowerCase().includes(searchTerm);
+        li.style.display = isMatch ? '' : 'none';
+        if (isMatch && searchTerm) {
+          let parent = li.parentElement.closest('.folder');
+          while(parent) {
+            parent.classList.add('open');
+            parent.style.display = '';
+            parent = parent.parentElement.closest('.folder');
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
