@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Review: Real-Time Fraud Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #F9FAFB;
+        }
+        .slide {
+            min-height: 100vh;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+            padding: 2rem 4rem;
+        }
+        .slide.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .glass-card {
+            background: rgba(31, 41, 55, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 2rem;
+        }
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: #3B82F6;
+            width: 0%;
+            transition: width 0.3s ease;
+            z-index: 50;
+        }
+        .nav-button {
+            position: fixed;
+            bottom: 2rem;
+            background-color: rgba(31, 41, 55, 0.8);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 9999px;
+            padding: 0.75rem;
+            cursor: pointer;
+            z-index: 50;
+            transition: all 0.2s ease;
+        }
+        .nav-button:hover {
+            background-color: #3B82F6;
+        }
+        #prevBtn { left: 2rem; }
+        #nextBtn { right: 2rem; }
+        #agendaBtn {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .fade-in-item {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+        .path-card {
+            background: #273344;
+            border: 1px solid #4B5563;
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-grow: 1;
+        }
+        .path-card:hover {
+            background: #3B82F6;
+            border-color: #60A5FA;
+            transform: translateY(-5px);
+        }
+        .path-card.active {
+            background: #1D4ED8;
+            border-color: #3B82F6;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2);
+        }
+        #path-details-container {
+            transition: all 0.5s ease-in-out;
+            max-height: 0;
+            overflow: hidden;
+        }
+        .agenda-item {
+            transition: all 0.2s ease-in-out;
+        }
+        .agenda-item:hover {
+            transform: translateY(-5px) scale(1.02);
+            background: #2563EB;
+        }
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip-icon {
+            cursor: pointer;
+            color: #9CA3AF;
+            font-weight: bold;
+            border: 1px solid #9CA3AF;
+            border-radius: 50%;
+            width: 1.25rem;
+            height: 1.25rem;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-style: normal;
+        }
+        .tooltip-text {
+            visibility: hidden;
+            width: 220px;
+            background-color: #1F2937;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid #4B5563;
+        }
+        .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #4B5563 transparent transparent transparent;
+        }
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        .role-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            text-align: center;
+        }
+        .role-card svg {
+            flex-shrink: 0;
+        }
+        .workflow-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4B5563;
+            font-size: 2rem;
+            font-weight: bold;
+            padding: 0 1rem;
+        }
+        .animated-counter {
+            transition: all 1s ease-out;
+        }
+        .chart-bar {
+            transform: scaleY(0);
+            transform-origin: bottom;
+            transition: transform 1s ease-out;
+        }
+        .fi-calc-item {
+            opacity: 0;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform: translateY(10px);
+        }
+        .fi-component {
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            transform: scale(0.9);
+        }
+        .credentials {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+        .credential-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #9CA3AF;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .credential-link:hover {
+            color: #F9FAFB;
+        }
+        .credential-link svg, .credential-link img {
+            width: 1.5rem;
+            height: 1.5rem;
+            fill: currentColor;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+    <div class="progress-bar" id="progressBar"></div>
+
+    <main id="presentation-container">
+        <section id="slide-1" class="slide">
+            <div class="text-center">
+                <h1 class="text-4xl md:text-6xl font-bold tracking-tight text-blue-300">Productionizing a Real-Time Fraud Detection Model</h1>
+                <p class="mt-6 text-lg md:text-2xl text-gray-300 max-w-4xl mx-auto">How I led an initiative to replace a costly 3rd-party vendor, saving <strong class="text-white">€XX,000/year in Chargebacks</strong> and unlocking <strong class="text-white">€YY M/year in GMV</strong> by reducing customer friction.</p>
+                <p class="mt-8 text-xl font-semibold">Partha Mandal</p>
+                <div class="credentials">
+                    <a href="https://partham16.github.io/" target="_blank" rel="noopener noreferrer" class="credential-link" title="Website"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg><span>Website</span></a>
+                    <a href="http://www.linkedin.com/in/partham16" target="_blank" rel="noopener noreferrer" class="credential-link" title="LinkedIn"><img src="https://www.google.com/s2/favicons?domain=linkedin.com" onerror="this.onerror=null;this.src='/favicons/linkedin.ico';"><span>LinkedIn</span></a>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-2" class="slide">
+            <div class="w-full max-w-7xl text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-12">Presentation Agenda</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <a href="#slide-3" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">1. Project Lifecycle</h3></a>
+                    <a href="#slide-4" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">2. My Role</h3></a>
+                    <a href="#slide-5" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">3. The Business Case</h3></a>
+                    <a href="#slide-6" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">4. Success Metrics</h3></a>
+                    <a href="#slide-7" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">5. Acceptance Criteria</h3></a>
+                    <a href="#slide-8" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">6. EDA & Insights</h3></a>
+                    <a href="#slide-9" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">7. Feature Engineering</h3></a>
+                    <a href="#slide-10" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">8. DS/ML Solution (Pt. 1)</h3></a>
+                    <a href="#slide-11" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">9. DS/ML Solution (Pt. 2)</h3></a>
+                    <a href="#slide-12" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">10. Path to Production</h3></a>
+                    <a href="#slide-13" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">11. Impact & Results</h3></a>
+                    <a href="#slide-14" class="agenda-item glass-card block"><h3 class="text-xl font-bold text-blue-300">12. Learnings</h3></a>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-3" class="slide">
+            <div class="w-full max-w-7xl text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-16">End-to-End Project Lifecycle</h2>
+                <div class="flex flex-col md:flex-row items-stretch justify-center w-full space-y-4 md:space-y-0">
+                    <div class="glass-card p-4 text-center fade-in-item flex flex-col justify-center">
+                        <h3 class="font-bold text-lg">Business Case</h3>
+                        <div class="mt-2 space-y-2 text-sm">
+                            <div class="bg-gray-700/50 rounded p-2">Perf. Metrics</div>
+                            <div class="bg-gray-700/50 rounded p-2">Financial Impact</div>
+                        </div>
+                    </div>
+                    <div class="workflow-arrow fade-in-item" style="transition-delay: 100ms;">&rarr;</div>
+                    <div class="glass-card p-4 text-center fade-in-item" style="transition-delay: 200ms;">
+                        <h3 class="font-bold text-lg">DS/ML Solution</h3>
+                        <div class="mt-2 space-y-2 text-sm">
+                            <div class="bg-gray-700/50 rounded p-2">Data Discovery & EDA</div>
+                            <div class="bg-gray-700/50 rounded p-2">Feature Engineering</div>
+                            <div class="bg-gray-700/50 rounded p-2">Modelling & Validation</div>
+                        </div>
+                    </div>
+                    <div class="workflow-arrow fade-in-item" style="transition-delay: 300ms;">&rarr;</div>
+                    <div class="glass-card p-4 text-center fade-in-item" style="transition-delay: 400ms;">
+                        <h3 class="font-bold text-lg">Production</h3>
+                         <div class="mt-2 space-y-2 text-sm">
+                            <div class="bg-gray-700/50 rounded p-2">Data Map & Feature Store</div>
+                            <div class="bg-gray-700/50 rounded p-2">Deploy & A/B Test</div>
+                            <div class="bg-gray-700/50 rounded p-2">Monitoring</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-4" class="slide">
+            <div class="w-full max-w-6xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">My Role: Driving the Initiative End-to-End</h2>
+                <div class="grid md:grid-cols-3 gap-8 text-left">
+                    <div class="glass-card fade-in-item">
+                        <h3 class="text-2xl font-semibold text-blue-300 mb-6 text-center">I Drove...</h3>
+                        <div class="space-y-6">
+                            <div class="role-card"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg><p>The <strong class="text-white">initial data discovery</strong> and EDA to validate project feasibility.</p></div>
+                            <div class="role-card"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.657 7.343A8 8 0 0118 18c-5 .5-9 .5-12 0A8 8 0 0117.657 18.657z" /></svg><p>The <strong class="text-white">entire feature engineering process</strong>, from aggregations to network features.</p></div>
+                        </div>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 150ms;">
+                        <h3 class="text-2xl font-semibold text-green-300 mb-6 text-center">I Owned...</h3>
+                        <div class="space-y-6">
+                            <div class="role-card"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg><p>The <strong class="text-white">business case</strong> and definition of <strong class="text-white">success metrics (KPIs)</strong>.</p></div>
+                            <div class="role-card"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg><p>The <strong class="text-white">final model selection</strong> and the <strong class="text-white">A/B test analysis</strong> and recommendation.</p></div>
+                        </div>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 300ms;">
+                        <h3 class="text-2xl font-semibold text-yellow-300 mb-6 text-center">I Led...</h3>
+                        <div class="space-y-6">
+                            <div class="role-card"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg><p>The overall <strong class="text-white">DS/ML project strategy</strong> from conception to post-launch.</p></div>
+                            <div class="role-card"><svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v4m0 0h-4m4 0l-5-5" /></svg><p>The critical <strong class="text-white">data mapping</strong> process and the design of <strong class="text-white">production monitoring</strong>.</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-5" class="slide">
+             <div class="w-full max-w-5xl text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-12">The Business Case: A Three-Fold Opportunity</h2>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="glass-card fade-in-item">
+                        <div class="text-blue-400 mb-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div>
+                        <h3 class="text-xl font-semibold">Cost Savings</h3>
+                        <p class="mt-2 text-gray-300">Replace a 3rd-party vendor contract costing <strong class="text-white">€XM annually</strong>.</p>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 150ms;">
+                         <div class="text-blue-400 mb-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg></div>
+                        <h3 class="text-xl font-semibold">Performance Uplift</h3>
+                        <p class="mt-2 text-gray-300">Beat the vendor's black-box model to <strong class="text-white">reduce chargebacks & customer friction</strong>.</p>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 300ms;">
+                         <div class="text-blue-400 mb-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div>
+                        <h3 class="text-xl font-semibold">Agility & Speed</h3>
+                        <p class="mt-2 text-gray-300">Gain the ability to <strong class="text-white">rapidly retrain and deploy</strong>, adapting to new fraud patterns in days, not months.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-6" class="slide">
+            <div class="w-full max-w-4xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">Measuring Success: KPIs and Financial Impact</h2>
+                <div class="space-y-8">
+                    <div>
+                        <h3 class="text-2xl font-semibold text-blue-300 mb-4 text-center">ML Performance KPIs</h3>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="glass-card p-4 flex justify-between items-center"><p class="font-bold text-lg">Precision</p><div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text">"Are we right?" Of all transactions we flagged, what % were actually fraud? High precision reduces customer friction.</span></div></div>
+                            <div class="glass-card p-4 flex justify-between items-center"><p class="font-bold text-lg">Recall</p><div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text">"Do we miss anything?" Of all actual fraud, what % did we catch? High recall reduces chargebacks.</span></div></div>
+                            <div class="glass-card p-4 flex justify-between items-center"><p class="font-bold text-lg">F1-Score</p><div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text">The harmonic mean of Precision and Recall. A great single metric for imbalanced problems.</span></div></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-semibold text-blue-300 mb-4 text-center">Financial Impact Framework</h3>
+                        <div class="glass-card">
+                            <div id="fi-grid" class="grid grid-cols-[1fr,2fr,2fr] gap-2 text-center items-stretch">
+                                </div>
+                            <button id="calculate-fi-btn" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Build & Explain Framework</button>
+                            <div id="fi-explanation" class="mt-4 text-lg h-8 text-center text-gray-300 transition-opacity duration-500 opacity-0"></div>
+                            <div id="fi-calculation" class="mt-4 text-lg h-24 flex flex-col items-center justify-center gap-2 flex-wrap"></div>
+                        </div>
+                    </div>
+                    <div id="total-impact-card" class="glass-card text-sm space-y-4 opacity-0 transition-opacity duration-500">
+                         <h4 class="font-bold text-lg text-center text-blue-300 mb-2">The Bottom Line</h4>
+                        <p>The <strong class="text-white text-base">Total Impact</strong> provides the full business picture by combining the model's operational gains with the <strong class="text-white text-base">€XM annual contract savings</strong>.</p>
+                        <p><sup>*</sup>The <strong class="text-white">11% 3DS drop rate</strong>, used to calculate friction cost, was determined from prior, isolated A/B tests on challenged transactions.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-7" class="slide">
+            <div class="w-full max-w-4xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">Project Acceptance Criteria</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-sm">
+                    <div class="p-4 rounded bg-green-800 border border-green-600 space-y-2"><strong class="text-green-300 text-lg">Green</strong><p>Positive operational impact alone. Clear Go.</p></div>
+                    <div class="p-4 rounded bg-yellow-800 border border-yellow-600 space-y-2"><strong class="text-yellow-300 text-lg">Yellow</strong><p>Marginal operational impact. Still a Go.</p></div>
+                    <div class="p-4 rounded bg-orange-800 border border-orange-600 space-y-2"><strong class="text-orange-300 text-lg">Orange</strong><p>Positive only after including contract savings. Go, but needs monitoring.</p></div>
+                    <div class="p-4 rounded bg-red-800 border border-red-600 space-y-2"><strong class="text-red-300 text-lg">Red</strong><p>Negative total financial impact. No-Go.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-8" class="slide">
+            <div class="w-full max-w-6xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">EDA: Key Insights That Shaped Our Strategy</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="glass-card fade-in-item">
+                        <h3 class="font-bold text-lg text-blue-300">Pareto Principle in Fraud & GMV</h3>
+                        <p class="mt-2">75% of chargebacks came from just 3 countries, while ~92% of GMV came from the top 8 countries.</p>
+                        <p class="mt-2 text-sm text-yellow-300"><strong>Implication:</strong> We needed to pay close attention to model performance in these key segments, not just the global average.</p>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 150ms;">
+                        <h3 class="font-bold text-lg text-blue-300">Fraudulent Order Value</h3>
+                        <p class="mt-2">The average order value for transactions that resulted in a chargeback was significantly higher than for legitimate orders.</p>
+                        <p class="mt-2 text-sm text-yellow-300"><strong>Implication:</strong> This confirmed that `amount` would be a powerful feature and that focusing on high-value transactions was critical.</p>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 300ms;">
+                        <h3 class="font-bold text-lg text-blue-300">Chargeback Maturity Time</h3>
+                        <p class="mt-2">Waiting 90 days for chargeback data to mature captured 91% of all final chargebacks.</p>
+                        <p class="mt-2 text-sm text-yellow-300"><strong>Implication:</strong> I decided this was the optimal trade-off between data completeness and speed, allowing us to retrain models quarterly without waiting the full 180 days.</p>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 450ms;">
+                        <h3 class="font-bold text-lg text-blue-300">Performance Segmentation</h3>
+                        <p class="mt-2">Based on these insights, I established a process to monitor performance across crucial segments.</p>
+                        <p class="mt-2 text-sm text-yellow-300"><strong>Implication:</strong> We tracked F1, Precision, and Recall for top countries and for new vs. existing users to ensure the model was fair and effective for everyone.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-9" class="slide">
+            <div class="w-full max-w-7xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">Feature Engineering at Scale</h2>
+                <p class="text-center text-lg text-gray-400 mb-8">We engineered a rich set of features from ~100 raw data points per order.</p>
+                <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div class="glass-card p-4 fade-in-item"><h4 class="font-bold text-lg text-blue-300 mb-2">Activity & User</h4><ul class="list-disc list-inside"><li>Order/Card Counts</li><li>Amount (Sum/Avg)</li><li>Account/Card Age</li><li>Payment Type</li><li>Domestic/Foreign Card</li></ul></div>
+                    <div class="glass-card p-4 fade-in-item" style="transition-delay: 100ms;"><h4 class="font-bold text-lg text-blue-300 mb-2">Time Horizon Aggs</h4><ul class="list-disc list-inside"><li>Aggregates over 3h, 1d, 7d, 30d, 90d</li><li>User, Device & Phone level</li></ul></div>
+                    <div class="glass-card p-4 fade-in-item" style="transition-delay: 200ms;"><h4 class="font-bold text-lg text-green-300 mb-2">Graph & Network</h4><ul class="list-disc list-inside"><li>Network Size</li><li>Associated Device Counts</li><li>Associated Card Counts</li><li>Associated Email Counts</li></ul></div>
+                    <div class="glass-card p-4 fade-in-item" style="transition-delay: 300ms;"><h4 class="font-bold text-lg text-yellow-300 mb-2">Advanced Behavioral</h4><ul class="list-disc list-inside"><li>Email Domain</li><li>Phone Model, OS</li><li>Haversine Distance</li><li>Order Time/Day Patterns</li><li>Refund Count Rate</li><li>Cash Unpaid Rate</li></ul></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-10" class="slide">
+            <div class="w-full max-w-7xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">DS/ML Solution: Validation & Modeling</h2>
+                <div class="space-y-8">
+                    <div class="glass-card">
+                        <h3 class="text-2xl font-semibold text-blue-300 text-center mb-4">Overall Validation Strategy</h3>
+                        <div class="flex items-center justify-center space-x-2 text-sm">
+                            <div class="bg-gray-800 p-4 rounded-lg text-center flex-1 border border-blue-500">
+                                <p class="font-bold">Training Data</p>
+                                <p>Jan - Sept</p>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg text-center flex-1 border border-yellow-500">
+                                <p class="font-bold">Validation Set</p>
+                                <p>Oct</p>
+                            </div>
+                            <div class="bg-gray-600 p-4 rounded-lg text-center flex-1 border border-green-500">
+                                <p class="font-bold">Test Set</p>
+                                <p>Nov</p>
+                            </div>
+                        </div>
+                        <p class="text-center mt-4 text-sm text-gray-400">A strict time-based split was crucial to prevent data leakage and accurately simulate how the model would perform on future, unseen data.</p>
+                    </div>
+                    <div class="glass-card">
+                        <h3 class="text-2xl font-semibold text-blue-300 text-center mb-4">Algorithms Explored</h3>
+                        <p class="text-center text-gray-300">Benchmarked several gradient boosting models, but ruled out Deep Learning networks due to strict real-time latency requirements.</p>
+                        <div class="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
+                            <div class="p-2 bg-gray-700/50 rounded">XGBoost</div>
+                            <div class="p-2 bg-gray-700/50 rounded">CatBoost</div>
+                            <div class="p-2 bg-blue-700/50 rounded border border-blue-400"><strong class="text-blue-300">LightGBM (Winner)</strong></div>
+                        </div>
+                        <p class="text-center mt-4 text-sm text-gray-400"><strong class="text-white">LightGBM provided the best balance</strong> of prediction performance and low-latency inference speed for our production environment.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-11" class="slide">
+            <div class="w-full max-w-7xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">DS/ML Solution: Optimization & Interpretability</h2>
+                <div class="space-y-8">
+                    <div class="glass-card">
+                        <h3 class="text-2xl font-semibold text-blue-300 text-center mb-4">Training & Optimization Workflow</h3>
+                        <div class="space-y-4 text-sm">
+                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">1. Undersampling</div><p>Undersampled the majority class in the training set (testing 1%, 5%, 10%, 20% ratios). This was chosen for <strong class="text-white">faster training iterations</strong> with minimal performance trade-off compared to oversampling.</p></div>
+                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">2. CV & Optimization</div><p>Ran <strong class="text-white">5-Fold Time-Series CV</strong> on the sampled data. Used <strong class="text-white">Optuna to optimize for PR-AUC</strong>, an ideal metric for imbalanced classification as it is not sensitive to a single decision threshold.</p></div>
+                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">3. Final Training</div><p>Trained the final LightGBM model on the <strong class="text-white">full, undersampled training data</strong> using the best hyperparameters discovered by Optuna.</p></div>
+                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">4. Thresholding</div><p>Used the trained model to predict on the <strong class="text-white">full validation set</strong>. Optimized decision thresholds to <strong class="text-white">maximize financial impact</strong> for key segments (global, country, new/existing users).</p></div>
+                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">5. Verification</div><p>Applied the chosen thresholds to the Test Set to <strong class="text-white">verify performance generalization</strong> over time before deployment.</p></div>
+                        </div>
+                    </div>
+                    <div class="glass-card">
+                         <h3 class="text-2xl font-semibold text-blue-300 text-center mb-4">Model Interpretability</h3>
+                        <p class="text-center text-gray-300">To build trust and understand model behavior, I used two key techniques:</p>
+                        <div class="mt-4 grid md:grid-cols-2 gap-4 text-sm">
+                             <div class="p-4 bg-gray-800/50 rounded"><strong class="text-white">SHAP (SHapley Additive exPlanations):</strong> To explain global feature importance and debug individual predictions, ensuring the model was making decisions for the right reasons.</div>
+                             <div class="p-4 bg-gray-800/50 rounded"><strong class="text-white">ALE (Accumulated Local Effects) Plots:</strong> To safely analyze how risk changed with feature values. This is more reliable than Partial Dependence Plots (PDPs) <strong class="text-white">when features are correlated</strong>.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-12" class="slide">
+             <div class="w-full max-w-6xl text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-8">My Path to Production: From Silo to System</h2>
+                <p class="mb-12 text-gray-400">Click on each stage to see the details of my work.</p>
+                <div id="path-cards-container" class="flex flex-col md:flex-row gap-4 w-full text-white font-semibold text-center">
+                    <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I led the investigation to reconcile production tables with analytics data stores.</li><li>I created the definitive mapping document used by both DS and Engineering.</li><li><strong>Challenge Overcome:</strong> This unblocked the entire project, as inconsistent data would have made the model useless in production.</li></ul>">1. Data Mapping</div>
+                    <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I designed the schemas for all real-time features.</li><li>I drove the implementation with Data Engineers, ensuring correctness.</li><li><strong>Impact:</strong> Guaranteed train/serve consistency and enabled feature reuse.</li></ul>">2. Feature Store</div>
+                    <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I owned the model handoff, providing the final artifact and dependencies.</li><li>I collaborated with MLEs on containerization and pre-launch testing to meet latency requirements.</li></ul>">3. Deployment</div>
+                    <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My A/B Testing Strategy:</h4><ul class='list-disc list-inside space-y-2 text-left'><li><strong>0.1% Holdout (Shadow Mode):</strong> First, I ran the model on a tiny holdout group with no actions taken. This was a crucial safety check to observe its real-world predictions (FPs/FNs) without any customer impact.</li><li><strong>10% Canary Test:</strong> After verification, we rolled out the model to 10% of traffic, now making real decisions. We monitored for 15 days, with a 30-day maturation period to track early chargebacks. This confirmed the validation results held true in a live environment.</li><li><strong>50/50 A/B Test:</strong> Finally, we ran a full 50/50 split for 2 months to gather statistically significant data on financial impact before rolling out to 100% and switching off the 3rd-party vendor.</li></ul>">4. A/B Test Analysis</div>
+                    <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I designed the dashboards to track key metrics post-launch.</li><li><strong>Focus:</strong> Monitored not just model drift, but crucial business KPIs like chargeback rates by country and real-time financial impact.</li></ul>">5. Monitoring</div>
+                </div>
+                <div id="path-details-container" class="w-full mt-8"><div id="path-details-content" class="glass-card text-left text-lg text-gray-300"></div></div>
+            </div>
+        </section>
+
+        <section id="slide-13" class="slide">
+            <div class="w-full max-w-5xl text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-12">Impact & Results: A Clear Success (Green)</h2>
+                <div class="grid md:grid-cols-3 gap-8 mb-12">
+                    <div class="glass-card fade-in-item">
+                        <p class="text-lg text-blue-300">Additional CHBs Saved</p>
+                        <p class="text-4xl md:text-5xl font-extrabold">€XX K</p>
+                        <p class="text-gray-400">annually</p>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 150ms;">
+                        <p class="text-lg text-blue-300">Additional GMV Freed</p>
+                        <p class="text-4xl md:text-5xl font-extrabold">€YY M</p>
+                        <p class="text-gray-400">annually from 3DS</p>
+                    </div>
+                    <div class="glass-card fade-in-item" style="transition-delay: 300ms;">
+                        <p class="text-lg text-blue-300">Production F1-Score</p>
+                        <p class="text-4xl md:text-5xl font-extrabold animated-counter" data-target="14" data-suffix="%">0%</p>
+                        <p class="text-gray-400">stable in production</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-14" class="slide">
+            <div class="w-full max-w-5xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">Learnings & Future Work</h2>
+                <div class="grid md:grid-cols-2 gap-12">
+                    <div class="fade-in-item"><h3 class="text-2xl font-semibold text-blue-300 mb-4">Key Learnings</h3><ul class="space-y-4 list-disc list-inside"><li><strong class="text-white">Business Context is King:</strong> The best features came from understanding fraudster behavior, not just algorithms.</li><li><strong class="text-white">Infrastructure First:</strong> Investing in a feature store early was a force multiplier that prevented major issues.</li><li><strong class="text-white">Collaboration is Non-Negotiable:</strong> Success depended on the tight loop between Data Science, Engineering, and Business.</li></ul></div>
+                    <div class="fade-in-item" style="transition-delay: 150ms;"><h3 class="text-2xl font-semibold text-blue-300 mb-4">What I Would Do Differently</h3><ul class="space-y-4 list-disc list-inside"><li><strong class="text-white">Include LTV loss from FP in Financial Impact:</strong> False Positives mean genuine customers are facing unnecessary friction, which might turn them away from platform</li><li><strong class="text-white">Explore Graph Neural Networks (GNNs):</strong> For a future iteration, I would explore using GNNs to more directly model the complex relationships between users, cards, and devices, potentially capturing sophisticated fraud rings that are harder to detect with traditional feature engineering.</li></ul></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="slide-15" class="slide">
+            <div class="text-center"><h1 class="text-5xl md:text-7xl font-bold text-blue-300">Thank You</h1><p class="mt-6 text-2xl md:text-3xl text-gray-300">Q&A</p></div>
+        </section>
+    </main>
+
+    <button id="prevBtn" class="nav-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg></button>
+    <button id="nextBtn" class="nav-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg></button>
+    <a href="#slide-2" id="agendaBtn" class="nav-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg></a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let isFiAnimationDone = false; // State variable for the animation
+
+            const slides = document.querySelectorAll('.slide');
+            let currentSlide = 0;
+            const totalSlides = slides.length;
+
+            function triggerAnimations(slide) {
+                const counters = slide.querySelectorAll('.animated-counter');
+                counters.forEach(counter => {
+                    const target = +counter.dataset.target;
+                    const suffix = counter.dataset.suffix || '';
+                    if (counter.textContent.replace(suffix, '').startsWith(`${target}`) && target != 0) return;
+                    counter.innerText = '0' + suffix;
+                    const animate = () => {
+                        const value = +counter.innerText.replace(suffix, '');
+                        const increment = target / 100;
+                        if(value < target) {
+                            counter.innerText = Math.ceil(value + increment) + suffix;
+                            setTimeout(animate, 10);
+                        } else {
+                            counter.innerText = target + suffix;
+                        }
+                    }
+                    animate();
+                });
+                
+                const barBefore = slide.querySelector('#bar-before');
+                if (barBefore) setTimeout(() => barBefore.style.transform = 'scaleY(1)', 500);
+                const barAfter = slide.querySelector('#bar-after');
+                if (barAfter) setTimeout(() => barAfter.style.transform = 'scaleY(0.4)', 700);
+
+                 const items = slide.querySelectorAll('.fade-in-item');
+                items.forEach((item, index) => {
+                    setTimeout(() => {
+                        item.style.opacity = '1';
+                        item.style.transform = 'translateY(0)';
+                    }, 100 * (index + 1));
+                });
+            }
+
+            function showSlide(index) {
+                slides.forEach((slide, i) => {
+                    const isActive = i === index;
+                    slide.classList.toggle('active', isActive);
+                    if (isActive) {
+                        triggerAnimations(slide);
+                        if(i === 5 && isFiAnimationDone) { // If it's slide 6 and animation has run
+                            renderFinalFiState();
+                        }
+                    }
+                });
+                document.getElementById('progressBar').style.width = `${((index + 1) / totalSlides) * 100}%`;
+                document.getElementById('prevBtn').style.display = index === 0 ? 'none' : 'block';
+                document.getElementById('nextBtn').style.display = index === totalSlides - 1 ? 'none' : 'block';
+                document.getElementById('agendaBtn').style.display = index === 1 ? 'none' : 'block';
+            }
+
+            function navigateToSlide(index) {
+                if (index >= 0 && index < totalSlides) {
+                    currentSlide = index;
+                    document.getElementById(`slide-${currentSlide + 1}`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        currentSlide = parseInt(entry.target.id.split('-')[1]) - 1;
+                        showSlide(currentSlide);
+                    }
+                });
+            }, { threshold: 0.6 });
+
+            slides.forEach(slide => observer.observe(slide));
+
+            document.getElementById('prevBtn').addEventListener('click', () => navigateToSlide(currentSlide - 1));
+            document.getElementById('nextBtn').addEventListener('click', () => navigateToSlide(currentSlide + 1));
+            
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+            
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight') navigateToSlide(currentSlide + 1);
+                else if (e.key === 'ArrowLeft') navigateToSlide(currentSlide - 1);
+            });
+            
+            const pathCards = document.querySelectorAll('.path-card');
+            const detailsContainer = document.getElementById('path-details-container');
+            const detailsContent = document.getElementById('path-details-content');
+
+            pathCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const detailsText = card.dataset.details;
+                    if (card.classList.contains('active')) {
+                        card.classList.remove('active');
+                        detailsContainer.style.maxHeight = '0';
+                        return;
+                    }
+                    pathCards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    detailsContent.innerHTML = detailsText;
+                    detailsContainer.style.maxHeight = detailsContent.scrollHeight + 48 + 'px';
+                });
+            });
+
+            // Financial Impact Animation
+            const calculateBtn = document.getElementById('calculate-fi-btn');
+            const fiGrid = document.getElementById('fi-grid');
+            const fiExplanation = document.getElementById('fi-explanation');
+            const fiCalculation = document.getElementById('fi-calculation');
+            const totalImpactCard = document.getElementById('total-impact-card');
+
+            const matrixData = [
+                { label: 'Block', items: [ {key: 'tp-b', text: 'TP', subtext: '€0', color: 'green'}, {key: 'fpb', text: 'FP (Block)', subtext: '€ Commission', color: 'red'} ] },
+                { label: 'Review', items: [ {key: 'tp-r', text: 'TP', subtext: '€0', color: 'green'}, {key: 'fpr', text: 'FP (Review)', subtext: '€ Commission * (1-3DS friction drop)', color: 'yellow'} ] },
+                { label: 'Allow', items: [ {key: 'fn', text: 'FN', subtext: '€ Order Amount<br>+ € CHB Cost', color: 'red'}, {key: 'tn', text: 'TN', subtext: '€ Commission', color: 'green'} ] }
+            ];
+            const colorMap = { green: 'bg-green-900/50 border-green-700', red: 'bg-red-900/50 border-red-700', yellow: 'bg-yellow-900/50 border-yellow-700' };
+
+            function renderFinalFiState() {
+                calculateBtn.style.display = 'none';
+                fiGrid.innerHTML = '<div></div><div class="font-bold">Fraud</div><div class="font-bold">Legitimate</div>';
+                
+                matrixData.forEach(row => {
+                    const rowLabel = document.createElement('div');
+                    rowLabel.className = 'font-bold self-center';
+                    rowLabel.textContent = row.label;
+                    fiGrid.appendChild(rowLabel);
+                    row.items.forEach(item => {
+                        const cell = document.createElement('div');
+                        cell.className = `p-3 rounded-md flex flex-col items-center justify-center text-center ${colorMap[item.color]}`;
+                        cell.innerHTML = `${item.text}<div class="text-xs text-${item.color}-300 mt-1">${item.subtext}</div>`;
+                        fiGrid.appendChild(cell);
+                    });
+                });
+
+                fiCalculation.innerHTML = `<div class="flex items-center justify-center gap-2 flex-wrap"><span class="fi-calc-item inline-flex items-center font-bold" style="opacity: 1; transform: translateY(0px);"><span class="mr-2 text-green-400">+</span><span class="px-3 py-1 rounded bg-gray-700 font-bold">TN</span></span><span class="fi-calc-item inline-flex items-center font-bold" style="opacity: 1; transform: translateY(0px);"><span class="mr-2 text-green-400">+</span><span class="px-3 py-1 rounded bg-gray-700 font-bold">FP(R)</span></span><span class="fi-calc-item inline-flex items-center font-bold" style="opacity: 1; transform: translateY(0px);"><span class="mr-2 text-red-400">-</span><span class="px-3 py-1 rounded bg-gray-700 font-bold">FN</span></span><span class="fi-calc-item inline-flex items-center font-bold" style="opacity: 1; transform: translateY(0px);"><span class="mr-2 text-red-400">-</span><span class="px-3 py-1 rounded bg-gray-700 font-bold">FP(B)</span></span><span class="fi-calc-item mx-2 font-bold text-blue-400" style="opacity: 1; transform: translateY(0px);">=</span><span class="fi-calc-item px-3 py-1 rounded bg-blue-500 font-bold" style="opacity: 1; transform: translateY(0px);">Operational Impact</span></div>`;
+                totalImpactCard.style.opacity = 1;
+            }
+
+            calculateBtn.addEventListener('click', () => {
+                isFiAnimationDone = true;
+                runFiAnimation();
+            });
+
+            function runFiAnimation() {
+                calculateBtn.style.display = 'none';
+                fiGrid.innerHTML = ''; 
+                fiCalculation.innerHTML = '';
+                fiExplanation.style.opacity = 0;
+                totalImpactCard.style.opacity = 0;
+
+                fiGrid.innerHTML += `<div></div><div class="font-bold">Fraud</div><div class="font-bold">Legitimate</div>`;
+
+                let delay = 0;
+                matrixData.forEach(row => {
+                    const rowLabel = document.createElement('div');
+                    rowLabel.className = 'font-bold self-center';
+                    rowLabel.textContent = row.label;
+                    fiGrid.appendChild(rowLabel);
+
+                    row.items.forEach(item => {
+                        const cell = document.createElement('div');
+                        cell.id = `fi-${item.key}`;
+                        cell.className = `fi-component p-3 rounded-md flex flex-col items-center justify-center text-center ${colorMap[item.color]}`;
+                        cell.innerHTML = `${item.text}<div class="text-xs text-${item.color}-300 mt-1">${item.subtext}</div>`;
+                        cell.style.transitionDelay = `${delay}ms`;
+                        fiGrid.appendChild(cell);
+                        delay += 100;
+                    });
+                });
+                
+                setTimeout(() => {
+                    const fiComponents = fiGrid.querySelectorAll('.fi-component');
+                    fiComponents.forEach(el => {
+                        el.style.opacity = '1';
+                        el.style.transform = 'scale(1)';
+                    });
+                }, 100);
+
+                setTimeout(() => {
+                    fiExplanation.textContent = "Let's calculate the Operational Impact...";
+                    fiExplanation.style.opacity = 1;
+                }, delay);
+
+                setTimeout(() => {
+                    fiExplanation.style.opacity = 0;
+                    const operationalImpactDiv = document.createElement('div');
+                    operationalImpactDiv.className = 'flex items-center justify-center gap-2 flex-wrap';
+                    fiCalculation.appendChild(operationalImpactDiv);
+
+                    const terms = [
+                        { sign: '+', key: 'TN' }, { sign: '+', key: 'FP (Review)' },
+                        { sign: '-', key: 'FN' }, { sign: '-', key: 'FP (Block)' }
+                    ];
+
+                    terms.forEach((term, i) => {
+                        setTimeout(() => {
+                            const termEl = document.createElement('span');
+                            termEl.className = 'fi-calc-item inline-flex items-center font-bold';
+                            const signEl = document.createElement('span');
+                            signEl.className = `mr-2 ${term.sign === '+' ? 'text-green-400' : 'text-red-400'}`;
+                            signEl.textContent = term.sign;
+                            const keyEl = document.createElement('span');
+                            keyEl.className = 'px-3 py-1 rounded bg-gray-700 font-bold';
+                            keyEl.textContent = term.key;
+                            termEl.appendChild(signEl);
+                            termEl.appendChild(keyEl);
+                            operationalImpactDiv.appendChild(termEl);
+                            setTimeout(()=> termEl.style.opacity = 1, 50);
+                        }, i * 250);
+                    });
+
+                    setTimeout(() => {
+                        const equalsEl = document.createElement('span');
+                        equalsEl.className = 'fi-calc-item mx-2 font-bold text-blue-400';
+                        equalsEl.textContent = '=';
+                        operationalImpactDiv.appendChild(equalsEl);
+                        const resultEl = document.createElement('span');
+                        resultEl.className = 'fi-calc-item px-3 py-1 rounded bg-blue-500 font-bold';
+                        resultEl.textContent = 'Operational Impact';
+                        operationalImpactDiv.appendChild(resultEl);
+                        setTimeout(()=> {
+                            equalsEl.style.opacity = 1;
+                            resultEl.style.opacity = 1;
+                            totalImpactCard.style.opacity = 1;
+                        }, 50);
+                    }, terms.length * 250);
+
+                }, delay + 1500);
+            }
+
+            showSlide(0);
+        });
+    </script>
+</body>
+</html>
