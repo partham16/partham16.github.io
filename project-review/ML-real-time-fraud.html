@@ -429,15 +429,19 @@
                         <div class="flex items-center justify-center space-x-2 text-sm">
                             <div class="bg-gray-800 p-4 rounded-lg text-center flex-1 border border-blue-500">
                                 <p class="font-bold">Training Data</p>
-                                <p>Jan - Sept</p>
+                                <p>Nov - Mar</p>
                             </div>
                             <div class="bg-gray-700 p-4 rounded-lg text-center flex-1 border border-yellow-500">
                                 <p class="font-bold">Validation Set</p>
-                                <p>Oct</p>
+                                <p>Apr</p>
                             </div>
                             <div class="bg-gray-600 p-4 rounded-lg text-center flex-1 border border-green-500">
                                 <p class="font-bold">Test Set</p>
-                                <p>Nov</p>
+                                <p>May</p>
+                            </div>
+                            <div class="bg-gray-600 p-4 rounded-lg text-center flex-1 border border-black-500">
+                                <p class="font-bold">CHB Maturation</p>
+                                <p>Jun - Aug</p>
                             </div>
                         </div>
                         <p class="text-center mt-4 text-sm text-gray-400">A strict time-based split was crucial to prevent data leakage and accurately simulate how the model would perform on future, unseen data.</p>
@@ -464,8 +468,8 @@
                         <h3 class="text-2xl font-semibold text-blue-300 text-center mb-4">Training & Optimization Workflow</h3>
                         <div class="space-y-4 text-sm">
                             <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">1. Undersampling</div><p>Undersampled the majority class in the training set (testing 1%, 5%, 10%, 20% ratios). This was chosen for <strong class="text-white">faster training iterations</strong> with minimal performance trade-off compared to oversampling.</p></div>
-                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">2. CV & Optimization</div><p>Ran <strong class="text-white">5-Fold Time-Series CV</strong> on the sampled data. Used <strong class="text-white">Optuna to optimize for PR-AUC</strong>, an ideal metric for imbalanced classification as it is not sensitive to a single decision threshold.</p></div>
-                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">3. Final Training</div><p>Trained the final LightGBM model on the <strong class="text-white">full, undersampled training data</strong> using the best hyperparameters discovered by Optuna.</p></div>
+                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">2. CV & Optimization</div><p>Ran <strong class="text-white">5-Fold Stratified CV</strong> on the sampled data. Used <strong class="text-white">Optuna to optimize for PR-AUC</strong>, an ideal metric for imbalanced classification as it is not sensitive to a single decision threshold.</p></div>
+                            <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">3. Final Training</div><p>Trained the final LightGBM model on the <strong class="text-white">full, undersampled training data</strong> using the best hyperparameters discovered by Optuna, and most important features as per SHAP.</p></div>
                             <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">4. Thresholding</div><p>Used the trained model to predict on the <strong class="text-white">full validation set</strong>. Optimized decision thresholds to <strong class="text-white">maximize financial impact</strong> for key segments (global, country, new/existing users).</p></div>
                             <div class="flex items-center gap-4"><div class="flex-shrink-0 w-40 p-2 bg-gray-800/50 rounded text-center font-bold text-blue-300">5. Verification</div><p>Applied the chosen thresholds to the Test Set to <strong class="text-white">verify performance generalization</strong> over time before deployment.</p></div>
                         </div>
@@ -490,7 +494,7 @@
                     <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I led the investigation to reconcile production tables with analytics data stores.</li><li>I created the definitive mapping document used by both DS and Engineering.</li><li><strong>Challenge Overcome:</strong> This unblocked the entire project, as inconsistent data would have made the model useless in production.</li></ul>">1. Data Mapping</div>
                     <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I designed the schemas for all real-time features.</li><li>I drove the implementation with Data Engineers, ensuring correctness.</li><li><strong>Impact:</strong> Guaranteed train/serve consistency and enabled feature reuse.</li></ul>">2. Feature Store</div>
                     <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I owned the model handoff, providing the final artifact and dependencies.</li><li>I collaborated with MLEs on containerization and pre-launch testing to meet latency requirements.</li></ul>">3. Deployment</div>
-                    <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My A/B Testing Strategy:</h4><ul class='list-disc list-inside space-y-2 text-left'><li><strong>0.1% Holdout (Shadow Mode):</strong> First, I ran the model on a tiny holdout group with no actions taken. This was a crucial safety check to observe its real-world predictions (FPs/FNs) without any customer impact.</li><li><strong>10% Canary Test:</strong> After verification, we rolled out the model to 10% of traffic, now making real decisions. We monitored for 15 days, with a 30-day maturation period to track early chargebacks. This confirmed the validation results held true in a live environment.</li><li><strong>50/50 A/B Test:</strong> Finally, we ran a full 50/50 split for 2 months to gather statistically significant data on financial impact before rolling out to 100% and switching off the 3rd-party vendor.</li></ul>">4. A/B Test Analysis</div>
+                    <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My A/B Testing Strategy [Sep - Dec]:</h4><ul class='list-disc list-inside space-y-2 text-left'><li><strong>0.1% Holdout (Shadow Mode):</strong> First, I ran the model on a tiny holdout group with no blocks. This was a crucial safety check to observe its real-world predictions (FPs/FNs) without any model biases.</li><li><strong>10% Canary Test:</strong> After verification, we rolled out the model to 10% of traffic, now making real decisions. We monitored for 15 days, with a 30-day maturation period to track early chargebacks. This confirmed the validation results held true in a live environment.</li><li><strong>50/50 A/B Test:</strong> Finally, we ran a full 50/50 split for 2 months to gather statistically significant data on financial impact before rolling out to 100% and switching off the 3rd-party vendor.</li></ul>">4. A/B Test Analysis</div>
                     <div class="path-card" data-details="<h4 class='font-bold text-blue-300 mb-2'>My Contribution:</h4><ul class='list-disc list-inside space-y-2'><li>I designed the dashboards to track key metrics post-launch.</li><li><strong>Focus:</strong> Monitored not just model drift, but crucial business KPIs like chargeback rates by country and real-time financial impact.</li></ul>">5. Monitoring</div>
                 </div>
                 <div id="path-details-container" class="w-full mt-8"><div id="path-details-content" class="glass-card text-left text-lg text-gray-300"></div></div>
