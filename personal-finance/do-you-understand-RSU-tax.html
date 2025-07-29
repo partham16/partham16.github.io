@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The RSU Tax Trap Nobody Talks About</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #fafafa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f8fafc;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --accent-primary: #667eea;
+            --accent-secondary: #764ba2;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --border-light: #e2e8f0;
+            --border-medium: #cbd5e0;
+            --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+        }
+
+        .dark-mode {
+            --bg-primary: #0f1419;
+            --bg-secondary: #1a202c;
+            --bg-tertiary: #2d3748;
+            --text-primary: #f7fafc;
+            --text-secondary: #e2e8f0;
+            --text-muted: #a0aec0;
+            --accent-primary: #81e6d9;
+            --accent-secondary: #9f7aea;
+            --success: #68d391;
+            --warning: #fbb454;
+            --danger: #fc8181;
+            --border-light: #2d3748;
+            --border-medium: #4a5568;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.7;
+            color: var(--text-primary);
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-tertiary) 100%);
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 4rem;
+            position: relative;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: -1rem;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 50px;
+            padding: 0.5rem;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-secondary);
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .article {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+            margin-bottom: 3rem;
+        }
+
+        .article-content {
+            padding: 3rem;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-number {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .scenario-card {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            border-left: 4px solid;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .scenario-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .scenario-grant { border-left-color: var(--accent-primary); }
+        .scenario-vest { border-left-color: var(--danger); }
+        .scenario-sell { border-left-color: var(--success); }
+        .event-grant { color: var(--accent-primary); font-weight: 600; }
+        .event-vest { color: var(--danger); font-weight: 600; }
+        .event-sell { color: var(--success); font-weight: 600; }
+
+        .scenario-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .callout {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin: 2rem 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .callout::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        }
+        .callout-title { font-size: 1.1rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.5rem; }
+        .callout-text { font-size: 1.25rem; font-weight: 600; color: var(--text-primary); }
+
+        .plot-twist {
+            background: linear-gradient(135deg, rgba(245, 101, 101, 0.1), rgba(237, 137, 54, 0.1));
+            border: 1px solid rgba(245, 101, 101, 0.3);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin: 2rem 0;
+            text-align: center;
+        }
+        .plot-twist-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--danger);
+        }
+        .plot-twist-icon { width: 24px; height: 24px; fill: var(--danger); }
+        
+        .insight-box {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-left: 4px solid var(--warning);
+        }
+        .insight-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+        .insight-icon { width: 24px; height: 24px; fill: var(--warning); }
+        .insight-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+        
+        .math-box {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            margin: 1rem 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+        }
+
+        .vertical-timeline {
+            position: relative;
+            padding: 2rem 0;
+            margin: 2rem 0;
+        }
+        .vertical-timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 19px; /* Centered on the dot */
+            height: 100%;
+            width: 2px;
+            background: var(--border-medium);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+            padding-left: 4rem;
+        }
+        .timeline-item:last-child { margin-bottom: 0; }
+        .timeline-dot {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            z-index: 1;
+            border: 3px solid var(--bg-secondary);
+        }
+        .timeline-content {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+        }
+        .timeline-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .action-item { background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 1.5rem; border-top: 3px solid var(--accent-primary); }
+        .action-number {
+            background: var(--accent-primary);
+            color: white;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .disclaimer {
+            background: linear-gradient(135deg, rgba(237, 137, 54, 0.1), rgba(245, 101, 101, 0.1));
+            border: 1px solid rgba(237, 137, 54, 0.3);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            margin: 3rem 0;
+            text-align: center;
+        }
+        .disclaimer-icon { width: 48px; height: 48px; fill: var(--warning); margin: 0 auto 1rem; }
+
+        .author-section { background: var(--bg-secondary); border-radius: var(--radius-xl); padding: 2rem; text-align: center; box-shadow: var(--shadow-lg); }
+        .author-links { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
+        .author-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 50px;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .author-link:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+        }
+        .author-link img { width: 16px; height: 16px; }
+        .author-link svg { width: 16px; height: 16px; fill: currentColor; }
+
+        .table-container { overflow-x: auto; margin: 2rem 0; }
+        .modern-table { width: 100%; border-collapse: collapse; background: var(--bg-secondary); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); }
+        .modern-table th { background: var(--bg-tertiary); padding: 1rem; text-align: left; font-weight: 600; color: var(--text-primary); border-bottom: 1px solid var(--border-light); }
+        .modern-table td { padding: 1rem; border-bottom: 1px solid var(--border-light); }
+        .modern-table tr:last-child td { border-bottom: none; }
+
+        .text-lg { font-size: 1.125rem; }
+        .text-sm { font-size: 0.875rem; color: var(--text-muted); }
+        .font-semibold { font-weight: 600; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-6 { margin-bottom: 1.5rem; }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .article-content { padding: 1.5rem; }
+            .hero-title { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+                <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <div class="hero-badge">Personal Finance</div>
+            <h1 class="hero-title">Do you really understand RSUs?</h1>
+            <p class="hero-subtitle">How "breaking even" on your stock grants can still trigger a hefty tax bill.</p>
+        </header>
+
+        <div class="author-section">
+            <h2 class="font-semibold text-lg mb-4">Partha Mandal</h2>
+            <div class="author-links">
+                <a href="https://partham16.github.io/" target="_blank" class="author-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    <span>Website</span>
+                </a>
+                <a href="http://www.linkedin.com/in/partham16" target="_blank" class="author-link">
+                    <img src="https://www.google.com/s2/favicons?domain=linkedin.com" alt="LinkedIn logo">
+                    <span>LinkedIn</span>
+                </a>
+            </div>
+        </div>
+
+        <article class="article">
+            <div class="article-content">
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-number">1</div>
+                        <h2 class="section-title">Let's Play a Game</h2>
+                    </div>
+                    <p class="text-lg mb-6">How many of us <strong>really</strong> understand RSU taxation? It's a big chunk of our compensation, but what we think we know about them might be far away from reality!</p>
+                    <div class="scenario-grid">
+                        <div class="scenario-card scenario-grant">
+                            <h3 class="scenario-title">The Grant (2023)</h3>
+                            <p>Your company grants you, in 2023, <span class="event-grant">$10,000 worth of RSUs</span>, at a price of <span class="event-grant">$40</span> grant price. You will get <span class="event-grant">250 shares</span>.</p>
+                        </div>
+                        <div class="scenario-card scenario-vest">
+                            <h3 class="scenario-title">The Vesting (2024)</h3>
+                            <p>You vest (i.e. get) them after 1 year in 2024 and the price on vest date is <span class="event-vest">$20</span>. You are super sad! You just lost 50% value.</p>
+                        </div>
+                        <div class="scenario-card scenario-sell">
+                            <h3 class="scenario-title">The "Recovery" (2025)</h3>
+                            <p>But, then, 1 year later, in 2025, the price goes back up to <span class="event-sell">$40</span>. You are quite happy, at least you broke even. You decided to take your money and sell it.</p>
+                        </div>
+                    </div>
+                    <div class="callout">
+                        <div class="callout-title">The million-dollar question:</div>
+                        <div class="callout-text">Do you owe taxes on this "break-even" sale?</div>
+                    </div>
+                    <div class="plot-twist">
+                        <div class="plot-twist-header">
+                            <svg class="plot-twist-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 13h-2V7h2v6zm0 4h-2v-2h2v2zm-1-15c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"/></svg>
+                            <span>The Plot Twist</span>
+                        </div>
+                        <p class="text-lg font-semibold">Yes, you absolutely owe taxes. Sadly!</p>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-number">2</div>
+                        <h2 class="section-title">The Two-Identity Tax System</h2>
+                    </div>
+                    <p>The system works this way because RSUs are <strong>compensation</strong> first, and an <strong>investment</strong> second. Tax law splits you into two identities:</p>
+                    <div class="insight-box">
+                        <p><strong>You as an Employee:</strong> Taxed on the value of the shares when you receive them (at vesting).</p>
+                        <p><strong>You as an Investor:</strong> Taxed on the growth of the shares from the moment you received them.</p>
+                    </div>
+                    
+                    <div class="vertical-timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-dot dot-grant">1</div>
+                            <div class="timeline-content">
+                                <h3 class="timeline-title event-grant">Event 1: The Employee Gets Taxed (Vesting)</h3>
+                                <p>When your <span class="event-vest">250 shares</span> vested at <span class="event-vest">$20</span>, the tax man saw a <span class="event-vest">$5,000</span> bonus. This triggers immediate income tax. To pay it, brokers "sell-to-cover".</p>
+                                <div class="math-box">
+                                    <div>Taxable Income: 250 shares × $20 = <span class="event-vest">$5,000</span></div>
+                                    <div>Income Tax (e.g., 45%): $5,000 × 0.45 = <span class="event-vest">$2,250</span></div>
+                                    <div>Shares Sold for Tax: $2,250 ÷ $20 = <span class="event-vest">112.5 shares</span></div>
+                                    <div><strong>Shares You Keep: 250 - 112.5 = 137.5 shares</strong></div>
+                                </div>
+                                <p class="text-sm">The <span class="event-vest">137.5 shares</span> you keep now have an official <strong>cost basis</strong> of <span class="event-vest">$20</span> per share.</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot dot-sell">2</div>
+                            <div class="timeline-content">
+                                <h3 class="timeline-title event-sell">Event 2: The Investor Makes a Profit (Selling)</h3>
+                                <p>When you sold your remaining shares for <span class="event-sell">$40</span>, the tax system ignored the grant price and used your cost basis:</p>
+                                <div class="math-box">
+                                    <div>Sale Price: <span class="event-sell">$40</span> per share</div>
+                                    <div>Cost Basis: <span class="event-vest">$20</span> per share</div>
+                                    <div>Capital Gain per Share: $40 - $20 = <span class="event-sell">$20</span></div>
+                                    <div><strong>Total Capital Gain: $20 × 137.5 = <span class="event-sell">$2,750</span></strong></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-number">3</div>
+                        <h2 class="section-title">No Stupid Questions: Why Isn't This Fairer?</h2>
+                    </div>
+                    <p>But, this feels unfair! You were granted something at a price, and if your selling price is same as that, you basically made 0! </p>
+                    <p>Paying taxes on that? That doesn't make sense :(</p>
+                    <div class="scenario-grid">
+                        <div class="scenario-card">
+                             <h3 class="scenario-title">Proposal: The "Common Sense" Model</h3>
+                            <p><strong>The 'Fair' Idea:</strong><br>Treat the grant price like a purchase price. When you order a shirt from Amazon for $40, your cost is $40, even if the price drops to $20 by the time it's delivered. The grant-to-vest "loss" should be recognized.</p>
+                            <p><strong>The Reality Check:</strong><br>This proposal would mean tracking two numbers (grant and vest price) for every grant, potentially for years. The tax benefit is also delayed until you sell, and only useful if you have other gains to offset. To be honest if we can do this for stock prices, there's no reason why we can't do that! Except maybe loss of tax revenue, or the feeling of unfairness on the upside.</p>
+                             <p><strong>Verdict:</strong><br>Seems complicated, but so is the entire tax code. The real hurdles are likely political, not practical.</p>
+                             <div class="insight-box" style="margin-top: 1rem;">
+                                <p class="text-sm">This is what I expected the default behaviour would be! So did my friends when I spoke to them. But, apparently common sense is not so common in tax law.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-number">4</div>
+                        <h2 class="section-title">The Upside: The Growth Scenario</h2>
+                    </div>
+                    <p>This system becomes incredibly powerful when your company's stock appreciates. Let's imagine a timeline where you are granted <span class="event-grant">250 shares at $40</span>, they vest at <span class="event-vest">$60</span>, and you sell at <span class="event-sell">$100</span>.</p>
+                    <div class="table-container">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Calculation</th>
+                                    <th>Taxable Amount</th>
+                                    <th>Tax Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Vesting</strong></td>
+                                    <td>250 shares × <span class="event-vest">$60</span> Vest Price</td>
+                                    <td><span class="event-vest">$15,000</span></td>
+                                    <td>Ordinary Income</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Selling</strong></td>
+                                    <td>(<span class="event-sell">$100</span> - <span class="event-vest">$60</span>) × 137.5 Shares Kept*</td>
+                                    <td><span class="event-sell">$5,500</span></td>
+                                    <td>Capital Gains</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-sm">*After selling ~45% for taxes at vest, you'd keep ~137.5 shares. The capital gain is ($40 profit/share × 137.5 shares).</p>
+                    <div class="insight-box">
+                        <div class="insight-header">
+                            <svg class="insight-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z"/></svg>
+                            <div class="insight-title">The Lightbulb Moment</div>
+                        </div>
+                        <p>Notice your capital gain is calculated from the <span class="event-vest">$60</span> vest price, not the original <span class="event-grant">$40</span> grant price. The $20 of growth that happened <strong>before</strong> you owned the shares was already taxed as part of your income.</p>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-number">5</div>
+                        <h2 class="section-title">The Five Stages of RSU Tax Grief</h2>
+                    </div>
+                    <div class="scenario-grid">
+                        <div class="scenario-card">
+                            <div class="scenario-title">😵 Denial</div>
+                            <p>"This calculator must be wrong. I broke even!"</p>
+                        </div>
+                        <div class="scenario-card">
+                            <div class="scenario-title">😡 Anger</div>
+                            <p>"The grant price was $40! Why doesn't that matter?!"</p>
+                        </div>
+                        <div class="scenario-card">
+                            <div class="scenario-title">🙏 Bargaining</div>
+                            <p>"Can't I just write off the loss I just had?"</p>
+                        </div>
+                        <div class="scenario-card">
+                            <div class="scenario-title">😔 Depression</div>
+                            <p>"What is wrong with the system!"</p>
+                        </div>
+                        <div class="scenario-card">
+                            <div class="scenario-title">✅ Acceptance</div>
+                            <p>"Well, I guess I'll only work for companies where stonks only go up!"</p>
+                        </div>
+                    </div>
+                </section>
+
+
+                <section class="section">
+                    <div class="section-header">
+                        <div class="section-number">6</div>
+                        <h2 class="section-title">Your Action Plan</h2>
+                    </div>
+                    <p>I only truly understood this last week, and after speaking with friends, I realized this confusion is widespread. That's how this post took shape. Understanding the rules is the first step. Here's what to do next:</p>
+                    <div class="action-grid">
+                        <div class="action-item">
+                            <div class="action-number">1</div>
+                            <h3 class="font-semibold mb-4">Find Vesting Statements</h3>
+                            <p>Log into your stock plan administrator (E*TRADE, Morgan Stanley, etc.) and download the PDF statement for every single RSU vest.</p>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-number">2</div>
+                            <h3 class="font-semibold mb-4">Identify Your Cost Basis</h3>
+                            <p>On each statement, find the "Fair Market Value" on the vesting date. This price is the official cost basis for the shares you kept.</p>
+                        </div>
+                        <div class="action-item">
+                            <div class="action-number">3</div>
+                            <h3 class="font-semibold mb-4">Track Everything</h3>
+                            <p>Keep these PDFs and a simple spreadsheet. Record the vesting date, number of shares kept, and the cost basis per share. Your future self will thank you.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="disclaimer">
+                    <svg class="disclaimer-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                    <h3 class="font-semibold mb-4">Crucial Disclaimer</h3>
+                    <p>I am an internet blogger with a spreadsheet, not a certified tax advisor. This post explains a general principle for educational purposes. Tax laws vary by country. Please consult a qualified local professional for advice.</p>
+                </div>
+            </div>
+        </article>
+    </div>
+    <script>
+        const themeToggle = document.getElementById('theme-toggle');
+        const sunIcon = `<svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+        const moonIcon = `<svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+
+        function setTheme(isDark) {
+            document.body.classList.toggle('dark-mode', isDark);
+            themeToggle.innerHTML = isDark ? sunIcon : moonIcon;
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const savedTheme = localStorage.getItem('theme');
+        
+        const isDark = savedTheme === 'dark' || (savedTheme === null && prefersDark);
+        setTheme(isDark);
+
+        themeToggle.addEventListener('click', () => {
+            const isCurrentlyDark = document.body.classList.contains('dark-mode');
+            setTheme(!isCurrentlyDark);
+        });
+    </script>
+</body>
+</html>
