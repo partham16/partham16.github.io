@@ -87,16 +87,21 @@
         }
 
         .theme-toggle {
-            position: absolute;
-            top: -1rem;
-            right: 0;
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
             background: var(--bg-secondary);
             border: 1px solid var(--border-light);
-            border-radius: 50px;
-            padding: 0.5rem;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
             box-shadow: var(--shadow-sm);
             transition: all 0.2s ease;
+            z-index: 10;
         }
 
         .theme-toggle:hover {
@@ -186,7 +191,7 @@
             transition: all 0.2s ease;
         }
 
-        .scenario-card:hover {
+        .scenario-card:hover, .callout:hover, .plot-twist:hover, .insight-box:hover, .action-item:hover {
             transform: translateY(-2px);
             box-shadow: var(--shadow-lg);
         }
@@ -216,6 +221,7 @@
             text-align: center;
             position: relative;
             overflow: hidden;
+            transition: all 0.2s ease;
         }
         .callout::before {
             content: '';
@@ -236,6 +242,7 @@
             padding: 2rem;
             margin: 2rem 0;
             text-align: center;
+            transition: all 0.2s ease;
         }
         .plot-twist-header {
             display: flex;
@@ -255,6 +262,7 @@
             padding: 1.5rem;
             margin: 2rem 0;
             border-left: 4px solid var(--warning);
+            transition: all 0.2s ease;
         }
         .insight-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
         .insight-icon { width: 24px; height: 24px; fill: var(--warning); }
@@ -279,7 +287,8 @@
             content: '';
             position: absolute;
             top: 0;
-            left: 19px; /* Centered on the dot */
+            left: 20px;
+            transform: translateX(-50%);
             height: 100%;
             width: 2px;
             background: var(--border-medium);
@@ -303,7 +312,6 @@
             font-weight: bold;
             color: white;
             z-index: 1;
-            border: 3px solid var(--bg-secondary);
         }
         .timeline-content {
             background: var(--bg-tertiary);
@@ -322,7 +330,13 @@
             gap: 1rem;
             margin: 2rem 0;
         }
-        .action-item { background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 1.5rem; border-top: 3px solid var(--accent-primary); }
+        .action-item { 
+            background: var(--bg-tertiary); 
+            border-radius: var(--radius-md); 
+            padding: 1.5rem; 
+            border-top: 3px solid var(--accent-primary);
+            transition: all 0.2s ease;
+        }
         .action-number {
             background: var(--accent-primary);
             color: white;
@@ -344,6 +358,7 @@
             padding: 2rem;
             margin: 3rem 0;
             text-align: center;
+            transition: all 0.2s ease;
         }
         .disclaimer-icon { width: 48px; height: 48px; fill: var(--warning); margin: 0 auto 1rem; }
 
@@ -393,6 +408,7 @@
         @media print {
             body {
                 background: none;
+                font-size: 14pt;
             }
             .container {
                 max-width: 100%;
@@ -400,18 +416,22 @@
             }
             .slide {
                 page-break-after: always;
-                height: 100vh; /* Or a fixed height like 1080px */
-                width: 100vw; /* Or a fixed width like 1080px */
+                height: 100vh;
+                width: 100vw;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
-                padding: 5%;
+                padding: 4rem;
                 box-shadow: none;
                 border-radius: 0;
                 margin-bottom: 0;
             }
-            .theme-toggle, .author-section {
+            .slide > * {
+                max-width: 850px;
+                width: 100%;
+            }
+            .theme-toggle {
                 display: none;
             }
             .article-content {
@@ -424,13 +444,12 @@
     </style>
 </head>
 <body>
+    <div class="theme-toggle" id="theme-toggle" title="Toggle theme">
+        <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+    </div>
     <div class="container">
-        <div class="theme-toggle" id="theme-toggle" title="Toggle theme">
-            <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-        </div>
-
         <div class="slide">
             <header class="header">
                 <div class="hero-badge">Personal Finance</div>
@@ -496,13 +515,6 @@
                         <div class="callout-title">The million-dollar question:</div>
                         <div class="callout-text">Do you owe taxes on this "break-even" sale?</div>
                     </div>
-                </div>
-            </article>
-        </div>
-
-        <div class="slide">
-            <article class="article">
-                <div class="article-content">
                     <div class="plot-twist">
                         <div class="plot-twist-header">
                             <svg class="plot-twist-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 13h-2V7h2v6zm0 4h-2v-2h2v2zm-1-15c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"/></svg>
