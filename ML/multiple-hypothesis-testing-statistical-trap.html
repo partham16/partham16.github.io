@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiple Hypothesis Testing : A Statistical Trap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .container {
+            width: 100%;
+            max-width: 56rem; /* Equivalent to max-w-3xl */
+        }
+        .slide {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            padding: 2.5rem 3rem;
+            border: 1px solid #e5e7eb;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        .hero-badge {
+            display: inline-block;
+            background-color: #e0e7ff;
+            color: #4338ca;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .hero-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: #111827;
+        }
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: #4b5563;
+            margin-top: 0.75rem;
+            max-width: 42rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .author-section {
+            text-align: center;
+            padding-bottom: 2rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .author-name {
+            font-weight: 600;
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+        }
+        .author-links {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        .author-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #4b5563;
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .author-link:hover {
+            color: #4f46e5;
+        }
+        .author-link svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            fill: currentColor;
+        }
+        .author-link img {
+            width: 1rem;
+            height: 1rem;
+        }
+        
+        /* Prose styling from previous version */
+        .prose { font-family: 'Lora', serif; }
+        .prose h1, .prose h2, .prose h3, .prose h4 { font-family: 'Inter', sans-serif; }
+        .prose h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3rem; margin-bottom: 1.5rem; border-bottom: 2px solid #6366f1; padding-bottom: 0.75rem; }
+        .prose h3 { font-size: 1.35rem; font-weight: 600; margin-top: 2.5rem; margin-bottom: 1rem; color: #4338ca; }
+        .prose h4 { font-size: 1.1rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.5rem; }
+        .prose p { 
+            line-height: 1.8; 
+            font-size: 1.1rem; 
+            margin-bottom: 1.5rem; /* Added spacing */
+        }
+        .prose li { 
+            line-height: 1.8; 
+            font-size: 1.1rem; 
+            margin-bottom: 0.75rem;
+        }
+        .prose ul, .prose ol {
+             margin-bottom: 1.5rem; /* Added spacing */
+        }
+        .prose code { background-color: #eef2ff; color: #4338ca; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.95em; font-family: 'Inter', sans-serif; }
+        .prose blockquote { border-left: 4px solid #a5b4fc; padding: 1rem 1.5rem; font-style: italic; color: #4b5563; background-color: #f9fafb; border-radius: 0 8px 8px 0; }
+        .killer-question { background-color: #fdf4ff; border: 1px solid #e879f9; border-left: 5px solid #d946ef; border-radius: 8px; padding: 1.5rem; margin-top: 1.5rem; margin-bottom: 2.5rem; }
+        .killer-question p { font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 600; color: #701a75; margin: 0; }
+        .scenario-box { background-color: #f3f4f6; border: 1px solid #d1d5db; border-left: 5px solid #4b5563; border-radius: 8px; padding: 1.5rem; margin-top: 2rem; margin-bottom: 2.5rem; }
+        .scenario-box h4 { margin-top: 0; color: #1f2937; margin-bottom: 1rem; }
+        .scenario-box p { font-size: 1rem; font-family: 'Inter', sans-serif; margin-bottom: 1rem; }
+        .scenario-box p:last-child { margin-bottom: 0; }
+        .scenario-box .grid ol { margin-bottom: 0; }
+        .lightbulb { background-color: #fefce8; border: 1px solid #facc15; border-radius: 8px; padding: 1.5rem; margin-top: 1.5rem; margin-bottom: 2.5rem; }
+        .lightbulb h4 { color: #854d0e; margin-top: 0; }
+        .lightbulb p { font-size: 1rem; color: #a16207; margin-bottom: 1rem; }
+        .lightbulb p:last-child, .lightbulb ul:last-child {
+            margin-bottom: 0;
+        }
+        .insight-quote { color: #5b21b6; font-style: italic; font-weight: 600; }
+        /* NEW STYLE FOR ACTION WORDS */
+        .action-word {
+            background-color: #fee2e2; /* light red */
+            color: #991b1b; /* dark red */
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.25rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+        }
+        /* NEW STYLE FOR TAKEAWAY BOX */
+        .takeaway-box { 
+            background-color: #e0f2fe; /* light blue */
+            border: 1px solid #38bdf8;
+            border-left: 5px solid #0ea5e9; 
+            border-radius: 8px; 
+            padding: 1.5rem; 
+            margin-top: 1.5rem; 
+            margin-bottom: 2.5rem; 
+        }
+        .takeaway-box p { 
+            font-family: 'Inter', sans-serif; 
+            font-size: 1rem; 
+            color: #0369a1; /* dark blue */
+            margin-bottom: 1rem;
+        }
+        .takeaway-box p:last-child { margin-bottom: 0; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="slide">
+            <header class="header">
+                <div class="hero-badge">Statistics Deep Dive</div>
+                <h1 class="hero-title">Multiple Hypothesis Testing : A Statistical <span class="action-word">Trap</span></h1>
+                <p class="hero-subtitle">Learn How to Stop Chasing <span class="action-word">Ghosts</span> in Our Data</p>
+            </header>
+            
+            <div class="author-section">
+                <h2 class="author-name">Partha Mandal</h2>
+                <div class="author-links">
+                    <a href="https://partham16.github.io/" target="_blank" rel="noopener noreferrer" class="author-link">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                        <span>Website</span>
+                    </a>
+                    <a href="http://www.linkedin.com/in/partham16" target="_blank" rel="noopener noreferrer" class="author-link">
+                        <img src="https://www.google.com/s2/favicons?domain=linkedin.com" alt="LinkedIn logo">
+                        <span>LinkedIn</span>
+                    </a>
+                </div>
+            </div>
+
+            <article class="prose max-w-none">
+                <!-- The Case Study -->
+                <div class="scenario-box">
+                    <h4>Our Case Study: A Heart Health Drug Trial</h4>
+                    <p>A pharmaceutical company develops a new drug to improve heart health. A single metric isn't enough to prove it works, so they test <strong>m = 8</strong> different, crucial markers. They set their significance level at <strong>α = 0.05</strong>.</p>
+                    <p>The 8 markers and their resulting p-values (sorted) are:</p>
+                    <div class="grid grid-cols-2 gap-x-4">
+                        <ol class="text-sm !mt-2 bg-white p-4 rounded-lg shadow">
+                            <li>LDL Cholesterol: <code>0.001</code></li>
+                            <li>Apoprotein B: <code>0.008</code></li>
+                            <li>C-Reactive Protein (CRP): <code>0.015</code></li>
+                            <li>Triglycerides: <code>0.022</code></li>
+                        </ol>
+                        <ol class="text-sm !mt-2 bg-white p-4 rounded-lg shadow" start="5">
+                            <li>Blood Pressure: <code>0.045</code></li>
+                            <li>Lipoprotein(a): <code>0.180</code></li>
+                            <li>HDL Cholesterol: <code>0.350</code></li>
+                            <li>HbA1c: <code>0.760</code></li>
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- The Problem -->
+                <h2>The <span class="action-word">Tempting</span> (but <span class="action-word">Flawed</span>) Approach</h2>
+                <p>The simplest thing to do is to check each p-value against our alpha of 0.05. Looking at our list, the first five markers all have p-values less than 0.05. It looks like the drug is a <span class="action-word">massive success!</span></p>
+                
+                <p>But here's the trap: When you give yourself 8 chances to find a "significant" result, you dramatically increase your odds of being <span class="action-word">fooled</span> by random noise. This is the <strong>multiple testing problem</strong>. Simply looking at the individual p-values is not enough; we need a more rigorous approach.</p>
+                
+                <div class="lightbulb">
+                    <h4>💡 Lightbulb Moment: The Math of Many Chances</h4>
+                    <p>Why do the odds increase so dramatically? Let's do the math. If <code>α = 0.05</code>, the chance of <em>not</em> making a false-positive error on any single test is 95% (or 0.95). The chance of having no errors across all tests is <code>(0.95)<sup>m</sup></code>.</p>
+                    <ul>
+                        <li>With 1 test: <code>1 - (0.95)<sup>1</sup></code> = <strong>5% chance</strong> of a false positive.</li>
+                        <li>With 8 tests: <code>1 - (0.95)<sup>8</sup></code> = <strong>34% chance</strong> of at least one false positive!</li>
+                        <li>With 20 tests: <code>1 - (0.95)<sup>20</sup></code> = <strong>64% chance</strong>.</li>
+                    </ul>
+                    <p>Your chance of being fooled grows exponentially with every test you add.</p>
+                </div>
+
+                <!-- The Evolution of Solutions -->
+                <h2>The Evolution of a Solution</h2>
+
+                <h3>The First Answer: Bonferroni's "<span class="action-word">Zero Tolerance</span>" Rule</h3>
+                <p>The first and most intuitive solution was simple: if you're doing more tests, just be <span class="action-word">stricter</span>. The Bonferroni correction is a <span class="action-word">brute-force</span> method that answers one, very specific question.</p>
+                <div class="killer-question">
+                    <p><strong>The Killer Question for Bonferroni:</strong> "In our new drug trial, is there <strong>at least one marker</strong> we can be <em>almost certain</em> is not a random fluke, so we can confidently tell our board the drug shows a definite effect?"</p>
+                </div>
+                <p>In this high-stakes scenario, a false positive isn't just a statistical error; it's a potentially catastrophic business decision. If the company re-tools its factory based on a marker that was just a random fluke, they've wasted millions. Bonferroni is designed for this exact situation, where the cost of a single error is unacceptably high.</p>
+                <p>This question demands <span class="action-word">absolute certainty</span>. Bonferroni achieves this by dividing your error rate (<code>α</code>) by the number of tests (<code>m</code>).</p>
+                <ul>
+                    <li><strong>Calculation:</strong> The threshold is <code>0.05 / 8 = 0.00625</code>.</li>
+                    <li><strong>Conclusion:</strong> Only the first p-value (<code>0.001</code>) is below this line. <strong>Result: 1 significant marker.</strong></li>
+                </ul>
+                <div class="lightbulb">
+                    <h4>💡 Lightbulb Moment: Justification 1 (The Robust Explanation)</h4>
+                    <p>So why does dividing by <code>m</code> work? The goal is to shrink our overall error rate from 34% back down to 5%.</p>
+                    <p>This is achieved by using <strong>Boole's Inequality</strong>, which states that the probability of any one of several events happening is, at most, the sum of their individual probabilities.</p>
+                    <p>By giving each of our 8 tests a tiny <code>0.05 / 8</code> error budget, the total maximum chance of <em>any</em> error is brought back under control at 5%. Crucially, <strong>this holds true even if the tests are not independent</strong>, making it a very safe method.</p>
+                </div>
+                 <div class="lightbulb">
+                    <h4>💡 Lightbulb Moment: Justification 2 (The Mathematical View)</h4>
+                    <p>There's another reason based on a deeper mathematical principle. The <em>exact</em> formula for the overall error rate (<span class="action-word">assuming independent tests</span>) is <code>1 - (1 - α<sub>test</sub>)<sup>m</sup></code>.</p>
+                    <p>Using a first-order <strong>Taylor series</strong>, we can approximate <code>(1 - α<sub>test</sub>)<sup>m</sup></code> as <code>1 - m*α<sub>test</sub></code> for small values of <code>α<sub>test</sub></code>.</p>
+                    <p>Plugging this approximation back in gives us <code>α ≈ 1 - (1 - m*α<sub>test</sub>)</code>, which simplifies to <code>α<sub>test</sub> ≈ α / m</code>. So, the simple division rule is also a very strong mathematical approximation!</p>
+                </div>
+
+                <h3>A Better Answer: The Holm Method's "<span class="action-word">Smart Certainty</span>"</h3>
+                <p>Scientists realized Bonferroni was too <span class="action-word">conservative</span>. We needed a way to maintain that high standard of certainty while having more <strong class="action-word">power</strong> to find real effects. This led to the Holm method.</p>
+                <div class="lightbulb">
+                    <h4>💡 Lightbulb Moment: What is Statistical Power?</h4>
+                    <p><strong>Power</strong> is the ability of a test to detect a real effect when it actually exists. Think of it as avoiding a "false negative." An overly strict method like Bonferroni is like a smoke detector with the sensitivity turned way down. It won't give you false alarms, but it also has low power—it might not go off in a real fire! Holm's method is like a better-calibrated detector.</p>
+                </div>
+                <div class="killer-question">
+                    <p><strong>The Killer Question for Holm:</strong> "In our new drug trial, what is the <strong>maximum number of markers</strong> we can claim as discoveries, while still being <em>almost certain</em> that our entire list of claims contains zero random flukes?"</p>
+                </div>
+                <p>Holm's method has more power because it <strong>re-evaluates the <span class="action-word">penalty</span> at each step</strong>. Bonferroni applies the harshest correction (<code>α/8</code>) to every single test. Holm starts with that same harsh threshold for the smallest p-value. But if that test passes, it says, <span class="insight-quote">"Great, one discovery down. I'm now only worried about the remaining 7 tests."</span> So, for the second p-value, it uses a slightly more <span class="action-word">lenient</span> threshold of <code>α/7</code>. This <span class="action-word">sequential adjustment</span> gives every p-value (except the first) a better chance of being declared significant.</p>
+                <ul>
+                    <li><strong>Calculation:</strong> It compares <code>p(1)</code> to <code>α/8</code>, <code>p(2)</code> to <code>α/7</code>, and so on. In our example, it still only finds 1 marker. But imagine our second p-value was <code>0.007</code>. Bonferroni would miss it, but Holm's method would catch it (<code>0.007 < 0.05/7</code>), finding two significant results.</li>
+                </ul>
+                
+                <div class="takeaway-box">
+                    <p><strong>Both methods promise the same outcome.</strong></p>
+                    <p>Bonferroni applies the harshest, worst-case penalty to every single test, which is often overkill. Holm applies only the penalty that is strictly necessary at each step, "saving" its statistical power for the remaining tests.</p>
+                    <p>It's a rare and beautiful "free lunch" in statistics, which is why it's almost always recommended over the standard Bonferroni.</p>
+                </div>
+
+                <!-- FWER Chart -->
+                <div class="bg-white rounded-lg shadow-inner border p-4 sm:p-6 my-12">
+                    <h3 class="!mt-0 text-center font-bold text-gray-800">Visualization: FWER Methods</h3>
+                    <canvas id="fwerChart"></canvas>
+                    <p class="text-center text-sm text-gray-600 mt-2">Bonferroni vs. Holm. Both aim for certainty, but Holm's threshold steps up, giving it more power.</p>
+                </div>
+
+                <h3>The Modern Answer: Benjamini-Hochberg's "<span class="action-word">Pragmatic Discovery</span>"</h3>
+                <p>By the 1990s, science had changed. With genomics, we weren't running 8 tests, but 20,000. This required a total shift in philosophy.</p>
+                <div class="killer-question">
+                    <p><strong>The Killer Question for Benjamini-Hochberg:</strong> "We've tested 20,000 genes for a link to cancer. How can we generate the <span class="action-word">longest possible list</span> of promising candidates to pass to our lab team, while ensuring the list isn't mostly <span class="action-word">statistical noise?</span>"</p>
+                </div>
+                <div class="lightbulb">
+                    <h4>💡 Lightbulb Moment: Changing the Goal</h4>
+                    <p>The genius of Benjamini-Hochberg wasn't just a new formula; it was a new goal. It recognized that for large-scale discovery, seeking absolute certainty (zero false positives) was a recipe for finding nothing. The more practical goal is to ensure your list of discoveries is of high quality (a low <em>rate</em> of false positives). It's a tool for productive exploration in the age of big data.</p>
+                </div>
+                <p>To see the mechanics on a smaller scale, let's apply it to our 8-marker case study:</p>
+                <ul>
+                    <li><strong>Calculation:</strong> The BH method compares each ranked p-value to a unique, rising threshold: <code>(i/m) * α</code>. For our 4th p-value (<code>0.022</code>), the threshold is <code>(4/8) * 0.05 = 0.025</code>. Since <code>0.022 < 0.025</code>, it's significant. For our 5th p-value (<code>0.045</code>), the threshold is <code>(5/8) * 0.05 = 0.03125</code>. Since <code>0.045 > 0.03125</code>, it is not significant, and we stop.</li>
+                    <li><strong>Conclusion:</strong> This method flags our first <strong>4 markers</strong> as significant.</li>
+                </ul>
+                 <div class="lightbulb">
+                    <h4>💡 Lightbulb Moment: Why the "Scaled-Down" Threshold Works</h4>
+                    <p>The BH formula, <code>(i/m) * α</code>, creates a rising threshold. Why does this work? Remember that if there are no real effects, we expect the p-values to be spread out evenly (the "line of random expectation," <code>i/m</code>). The BH method compares your actual p-values to this line.</p>
+                    <p>Now, think about your goal: you want the <strong>proportion</strong> of false discoveries to be no more than <code>α</code> (e.g., 5%). The BH procedure finds the point where the proportion of p-values that are "too good to be random" is just right. Scaling the line of expectation down by <code>α</code> is the mathematical trick that achieves this. It ensures that, among all the p-values that beat this tougher, scaled-down line, the expected proportion of them that are actually flukes (false discoveries) is controlled at exactly <code>α</code>.</p>
+                </div>
+
+                <!-- FDR Chart -->
+                <div class="bg-white rounded-lg shadow-inner border p-4 sm:p-6 my-12">
+                    <h3 class="!mt-0 text-center font-bold text-gray-800">Visualization: The FDR Method</h3>
+                    <canvas id="fdrChart"></canvas>
+                    <p class="text-center text-sm text-gray-600 mt-2">Benjamini-Hochberg. We find the last p-value that ducks under the rising green line.</p>
+                </div>
+
+                <!-- New Interpretation Section -->
+                <h2>Interpreting Your Results: A Tale of Two Factories</h2>
+                <p>The most crucial part of this topic is understanding what the results from these different methods actually mean. Let's use an analogy of two factories that produce glass figurines.</p>
+                
+                <h3>The Holm-Bonferroni Factory (FWER Control)</h3>
+                <p>This factory ships boxes of figurines. It makes a very strong promise: <strong>95% of the boxes it ships will be <span class="action-word">perfect</span></strong>, containing zero broken figurines. The 5% risk is the chance you get a "bad box" with one or more broken items.</p>
+                <p>When Holm's method gives you a list of 2 significant results, the interpretation is: <span class="insight-quote">"I am 95% confident that this box of 2 discoveries is perfect and contains zero errors."</span> The promise is about the perfection of the entire set. It does <em>not</em> mean that each of the two has a 5% chance of being false.</p>
+
+                <h3>The Benjamini-Hochberg Factory (FDR Control)</h3>
+                <p>This factory ships much larger boxes. It makes a different promise about quality control: <strong>on average, across all figurines it produces, no more than 5% are broken.</strong></p>
+                <p>When the BH method gives you a list of 500 significant discoveries, the interpretation is: <span class="insight-quote">"I have a box of 500 promising figurines. I cannot be sure this box is perfect, but I expect that no more than 5% of the items inside (about 25 of these figurines) are false positives."</span> The promise is about the average quality, or <span class="action-word">contamination rate</span>, of the items inside the box. It gives you a much longer list of candidates to investigate, with a controlled rate of <span class="action-word">duds</span>.</p>
+
+                <!-- Q&A Section -->
+                <h2>No Stupid Questions: A Deeper Dive</h2>
+                
+                <h4>What's the real difference between a p-value and alpha?</h4>
+                <p>Think of a limbo contest. The <strong>p-value is your height</strong>—it's a value calculated from your data. The <strong>alpha is the height of the limbo bar</strong>—it's a fixed threshold you decide on before the contest begins. To be significant ("win"), your height (p-value) must be smaller than the bar (alpha). Your height can be anything, but the bar's position determines if you pass.</p>
+
+                <h4>Why does Holm's logic of only worrying about the remaining 7 tests make sense?</h4>
+                <p>Because the FWER is the probability of making <em>at least one</em> error. If you have already confirmed your first result is a true discovery (or are willing to proceed as if it is), then the "at least one error" event for the whole family can now only happen within the remaining group of 7 tests. You have effectively reduced the size of the "family" you need to worry about, so you can apply a correction for a family of 7, which is less harsh.</p>
+
+                <h4>Can I just run fewer tests to get more significant results? And why is "p-hacking" a problem?</h4>
+                <p>No, you cannot. The number of tests (<code>m</code>) must be the total number you set out to investigate <em>before</em> seeing the data. Changing the rules after seeing the results is called <strong class="action-word">p-hacking</strong>. It is the statistical equivalent of <strong class="action-word">data leakage</strong> in machine learning. You are using information from your results (which p-values look good) to influence the test procedure itself. This breaks the statistical guarantees. It's like peeking at the exam answers and then claiming you got a perfect score honestly.</p>
+
+                <h4>Why exactly are null p-values "uniformly distributed"?</h4>
+                <p>This happens because of how a p-value is defined. Let's use a clear example:</p>
+                <ul>
+                    <li><strong>The Setup:</strong> Imagine you're testing a new fertilizer. The null hypothesis (H₀) is "it has no effect." You grow 100 plants: one with fertilizer and 99 without.</li>
+                    <li><strong>The Outcome:</strong> After a month, you rank all 100 plants by height. If H₀ is true, the fertilized plant's final rank is completely random. It's just as likely to be the 1st tallest as it is the 40th or 99th.</li>
+                    <li><strong>The P-value Calculation:</strong> The p-value is the probability of getting a result as extreme or more extreme than what you observed. This means <code>p-value = rank / total_plants</code>.
+                        <ul>
+                            <li>If it's the tallest (rank 1), p = 1/100 = 0.01.</li>
+                            <li>If it's the 40th tallest (rank 40), p = 40/100 = 0.40.</li>
+                        </ul>
+                    </li>
+                </ul>
+                <p>Since the rank is random under H₀, the resulting p-value is also a random draw from the set {0.01, 0.02, ..., 1.00}. This is a uniform distribution. This predictable pattern of pure chance is what allows us to spot results that are "too good to be random." The Benjamini-Hochberg method then compares your actual p-values to a scaled-down version of this random expectation to see if they beat the odds.</p>
+
+                <!-- Conclusion -->
+                <footer class="mt-16">
+                    <h2>Final Takeaway: Certainty vs. Discovery</h2>
+                    <p>The "best" method depends entirely on your research goal. There is no single right answer, only the right tool for the job.</p>
+                    <ul>
+                        <li>If your goal is <strong>certainty</strong> and to avoid making any false claims (like in our high-stakes drug trial example), control the FWER (Family-Wise Error Rate). Use the <strong>Holm-Bonferroni</strong> method.</li>
+                        <li>If your goal is <strong>discovery</strong> and to find as many promising leads as possible (like in our 20,000 gene example), control the FDR (False Discovery Rate). Use the <strong>Benjamini-Hochberg</strong> method.</li>
+                    </ul>
+                    <p class="text-center text-gray-500 mt-8">— Happy analyzing!</p>
+                </footer>
+            </article>
+        </div>
+    </div>
+
+    <script>
+        // Data for our chart
+        const pValues = [0.001, 0.008, 0.015, 0.022, 0.045, 0.180, 0.350, 0.760];
+        const m = pValues.length;
+        const alpha = 0.05;
+        const ranks = Array.from({ length: m }, (_, i) => i + 1);
+
+        // Calculate thresholds for each method
+        const bonferroniThreshold = Array(m).fill(alpha / m);
+        const holmThresholds = ranks.map(i => alpha / (m - i + 1));
+        const bhThresholds = ranks.map(i => (i / m) * alpha);
+
+        // Chart for FWER methods
+        const ctxFwer = document.getElementById('fwerChart').getContext('2d');
+        new Chart(ctxFwer, {
+            type: 'line',
+            data: {
+                labels: ranks.map(r => `Rank ${r}`),
+                datasets: [
+                    {
+                        label: 'Ranked p-values',
+                        data: pValues,
+                        borderColor: '#1f2937',
+                        backgroundColor: '#1f2937',
+                        type: 'scatter',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                    },
+                    {
+                        label: 'Bonferroni Threshold',
+                        data: bonferroniThreshold,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        borderDash: [5, 5],
+                    },
+                    {
+                        label: 'Holm-Bonferroni Threshold',
+                        data: holmThresholds,
+                        borderColor: '#8b5cf6', // Changed to purple
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        borderDash: [10, 3],
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        type: 'logarithmic', 
+                        title: { display: true, text: 'p-value / Threshold (Log Scale)', font: { family: "'Inter', sans-serif" } }
+                    },
+                    x: {
+                        title: { display: true, text: 'P-value Rank', font: { family: "'Inter', sans-serif" } }
+                    }
+                },
+                plugins: {
+                    tooltip: { callbacks: { label: (context) => `${context.dataset.label || ''}: ${context.parsed.y.toExponential(3)}` } },
+                    legend: { position: 'bottom', labels: { font: { family: "'Inter', sans-serif" } } }
+                }
+            }
+        });
+
+        // Chart for FDR method
+        const ctxFdr = document.getElementById('fdrChart').getContext('2d');
+        new Chart(ctxFdr, {
+            type: 'line',
+            data: {
+                labels: ranks.map(r => `Rank ${r}`),
+                datasets: [
+                    {
+                        label: 'Ranked p-values',
+                        data: pValues,
+                        borderColor: '#1f2937',
+                        backgroundColor: '#1f29-37',
+                        type: 'scatter',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                    },
+                    {
+                        label: 'Benjamini-Hochberg Threshold',
+                        data: bhThresholds,
+                        borderColor: '#10b981',
+                        backgroundColor: 'transparent',
+                        borderWidth: 3,
+                        pointRadius: 0,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        type: 'logarithmic', 
+                        title: { display: true, text: 'p-value / Threshold (Log Scale)', font: { family: "'Inter', sans-serif" } }
+                    },
+                    x: {
+                        title: { display: true, text: 'P-value Rank', font: { family: "'Inter', sans-serif" } }
+                    }
+                },
+                plugins: {
+                    tooltip: { callbacks: { label: (context) => `${context.dataset.label || ''}: ${context.parsed.y.toExponential(3)}` } },
+                    legend: { position: 'bottom', labels: { font: { family: "'Inter', sans-serif" } } }
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
+
