@@ -159,6 +159,28 @@
             margin-bottom: 1rem;
         }
         .takeaway-box p:last-child { margin-bottom: 0; }
+        /* NEW STYLE FOR INTERPRETATION BOX */
+        .interpretation-box { 
+            background-color: #f0fdf4; /* light green */
+            border: 1px solid #4ade80;
+            border-left: 5px solid #22c55e; 
+            border-radius: 8px; 
+            padding: 1.5rem; 
+            margin-top: 1.5rem; 
+            margin-bottom: 2.5rem; 
+        }
+        .interpretation-box h4 {
+            color: #15803d; /* dark green */
+            margin-top: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        .interpretation-box p { 
+            font-family: 'Inter', sans-serif; 
+            font-size: 1rem; 
+            color: #166534; /* dark green */
+            margin-bottom: 1rem;
+        }
+        .interpretation-box p:last-child { margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -266,7 +288,7 @@
                 </ul>
                 
                 <div class="takeaway-box">
-                    <p><strong>Both methods promise the same outcome.</strong></p>
+                    <p><strong>Both methods control the same type of error (FWER), guaranteeing a low probability of making even a single false discovery.</strong> However, Holm achieves this with more statistical power.</p>
                     <p>Bonferroni applies the harshest, worst-case penalty to every single test, which is often overkill. Holm applies only the penalty that is strictly necessary at each step, "saving" its statistical power for the remaining tests.</p>
                     <p>It's a rare and beautiful "free lunch" in statistics, which is why it's almost always recommended over the standard Bonferroni.</p>
                 </div>
@@ -292,6 +314,28 @@
                     <li><strong>Calculation:</strong> The BH method compares each ranked p-value to a unique, rising threshold: <code>(i/m) * α</code>. For our 4th p-value (<code>0.022</code>), the threshold is <code>(4/8) * 0.05 = 0.025</code>. Since <code>0.022 < 0.025</code>, it's significant. For our 5th p-value (<code>0.045</code>), the threshold is <code>(5/8) * 0.05 = 0.03125</code>. Since <code>0.045 > 0.03125</code>, it is not significant, and we stop.</li>
                     <li><strong>Conclusion:</strong> This method flags our first <strong>4 markers</strong> as significant.</li>
                 </ul>
+
+                <div class="interpretation-box">
+                    <h4>Interpreting the Trade-Off</h4>
+                    <p>So, Holm's method gave us 1 discovery, but BH gives us 4. They come with very different promises:</p>
+                    <ul>
+                        <li>
+                            <strong>The Holm (FWER) Promise:</strong> With the <strong>1 result from Holm</strong>, the guarantee is about the <em>entire list of discoveries</em>. There is a:
+                            <ul class="!my-2">
+                                <li><strong>95% chance</strong> that your list is perfectly clean (containing <strong>zero</strong> false positives).</li>
+                                <li><strong>5% chance</strong> that your list is tainted by one or more false positives.</li>
+                            </ul>
+                            This is a promise of near-certain <strong>perfection</strong>.
+                        </li>
+                        <li class="!mt-4">
+                            <strong>The BH (FDR) Promise:</strong> With the <strong>4 results from BH</strong>, the promise is about the list's <em>average quality</em>. The expected number of false discoveries is:
+                            <p class="!my-2 text-center"><code>0.05 (your FDR) * 4 (your discoveries) = 0.2</code></p>
+                            <p>This is a promise about the list's average quality—controlled <span class="action-word">contamination</span>—not a guarantee of perfection for this specific list.</p>
+                        </li>
+                    </ul>
+                    <p>This is the fundamental choice: Do you need a single, rock-solid result (Holm), or a longer, high-quality list of candidates for the next stage of research (BH)?</p>
+                </div>
+
                  <div class="lightbulb">
                     <h4>💡 Lightbulb Moment: Why the "Scaled-Down" Threshold Works</h4>
                     <p>The BH formula, <code>(i/m) * α</code>, creates a rising threshold. Why does this work? Remember that if there are no real effects, we expect the p-values to be spread out evenly (the "line of random expectation," <code>i/m</code>). The BH method compares your actual p-values to this line.</p>
@@ -316,6 +360,18 @@
                 <h3>The Benjamini-Hochberg Factory (FDR Control)</h3>
                 <p>This factory ships much larger boxes. It makes a different promise about quality control: <strong>on average, across all figurines it produces, no more than 5% are broken.</strong></p>
                 <p>When the BH method gives you a list of 500 significant discoveries, the interpretation is: <span class="insight-quote">"I have a box of 500 promising figurines. I cannot be sure this box is perfect, but I expect that no more than 5% of the items inside (about 25 of these figurines) are false positives."</span> The promise is about the average quality, or <span class="action-word">contamination rate</span>, of the items inside the box. It gives you a much longer list of candidates to investigate, with a controlled rate of <span class="action-word">duds</span>.</p>
+
+                <!-- NEW SECTION -->
+                <h2>Putting Interpretation into Practice: Two Final Scenarios</h2>
+                <p>Let's make this crystal clear with two new, hypothetical scenarios.</p>
+                
+                <h3>Scenario A: The Holm Method Yields 3 Discoveries</h3>
+                <p>Imagine you're testing 10 different potential allergens on a patient. After running the tests and applying the Holm-Bonferroni correction, you find 3 of them are statistically significant. What do you tell the patient?</p>
+                <blockquote>The interpretation is a statement of <strong>certainty about the list</strong>. You would say: "We have strong evidence that you are allergic to these 3 specific things. We can be 95% confident that this list is perfectly accurate and contains zero 'false alarms'." This gives the patient a short, actionable list they can rely on with extremely high confidence.</blockquote>
+
+                <h3>Scenario B: The Benjamini-Hochberg Method Yields 100 Discoveries</h3>
+                <p>Now, imagine you're a neuroscientist. You've scanned a brain and tested 5,000 different regions for activity related to a specific memory task. Using the Benjamini-Hochberg method with a 10% FDR, you find 100 regions that are significantly active. What does this mean?</p>
+                <blockquote>The interpretation is a statement of <strong>quality about a long list of candidates</strong>. You would conclude: "We've identified a network of 100 brain regions that appear to be involved in this memory task. We expect about 10% of these (around 10 regions) might be statistical noise, but this gives us an incredibly rich, prioritized list for our next, more focused experiments." Crucially, this does not mean we are 90% confident that the list is perfectly clean. The promise is about the average quality of the candidates, not the perfection of this specific set of results.</blockquote>
 
                 <!-- Q&A Section -->
                 <h2>No Stupid Questions: A Deeper Dive</h2>
@@ -342,6 +398,9 @@
                     </li>
                 </ul>
                 <p>Since the rank is random under H₀, the resulting p-value is also a random draw from the set {0.01, 0.02, ..., 1.00}. This is a uniform distribution. This predictable pattern of pure chance is what allows us to spot results that are "too good to be random." The Benjamini-Hochberg method then compares your actual p-values to a scaled-down version of this random expectation to see if they beat the odds.</p>
+
+                <h4>Is the False Discovery Rate always exactly 5%?</h4>
+                <p>That's a very precise point. The 5% is a guaranteed <strong>upper bound</strong>. The mathematical proof for the BH method is designed for the worst-case scenario (where there are no real effects). In a real experiment with genuine discoveries, the actual proportion of false positives on your list is often <em>lower</em> than 5%. Think of it as a promise that the contamination rate will be 'no more than 5%', which makes it a very safe and reliable method.</p>
 
                 <!-- Conclusion -->
                 <footer class="mt-16">
