@@ -15,12 +15,17 @@
 
         .timer-nums { font-variant-numeric: tabular-nums; }
         
-        /* Drag and Drop Styles */
-        .draggable-item { cursor: grab; }
+        .draggable-item { cursor: grab; transition: transform 0.1s, box-shadow 0.1s; }
         .draggable-item:active { cursor: grabbing; }
-        .draggable-item.dragging { opacity: 0.5; background: #e2e8f0; border: 2px dashed #94a3b8; }
+        .draggable-item.dragging { 
+            opacity: 0.9; 
+            background: #f0f9ff; 
+            border: 2px dashed #3b82f6; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 10;
+        }
 
-        /* Toast Animation */
         @keyframes slide-in-down {
             from { transform: translateY(-100%) translateX(-50%); opacity: 0; }
             to { transform: translateY(0) translateX(-50%); opacity: 1; }
@@ -35,7 +40,6 @@
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen flex flex-col items-center justify-center p-4 relative">
 
-    <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none hidden">
         <div class="bg-slate-800 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 pointer-events-auto border border-slate-600">
             <div class="text-2xl">⚠️</div>
@@ -48,24 +52,24 @@
     </div>
 
     <!-- MAIN APP CONTAINER -->
-    <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         <!-- HEADER -->
-        <div class="bg-slate-900 text-white p-6 flex justify-between items-center shrink-0">
+        <div class="bg-slate-900 text-white p-5 flex justify-between items-center shrink-0">
             <div>
                 <h1 id="header-title" class="text-xl font-bold">Session Master</h1>
                 <p id="header-subtitle" class="text-slate-400 text-sm">Classroom & Workshop Timer</p>
             </div>
             <div class="text-right">
                 <div id="total-time-display" class="font-mono text-emerald-400 font-bold text-lg">0h 0m</div>
-                <button onclick="clearData()" class="text-xs text-slate-500 hover:text-red-400 underline mt-1">Reset All Data</button>
+                <button onclick="clearData()" class="text-xs text-slate-500 hover:text-red-400 underline mt-1" title="Deletes all data and restores default">Reset</button>
             </div>
         </div>
 
         <!-- VIEW 1: SETUP & WAITING PANEL -->
         <div id="setup-view" class="flex flex-col h-full overflow-hidden">
             
-            <!-- WAITING / COUNTDOWN HEADER (Hidden by default) -->
+            <!-- WAITING / COUNTDOWN HEADER -->
             <div id="waiting-header" class="hidden flex-col items-center justify-center p-6 bg-slate-50 border-b border-slate-200">
                 <div class="text-center">
                     <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider mb-4">
@@ -75,68 +79,60 @@
                         </span>
                         Scheduled
                     </span>
-
-                    <!-- SESSION NAME DISPLAY -->
                     <h2 id="waiting-session-name" class="text-2xl font-bold text-slate-800 mb-2"></h2>
-
-                    <div id="countdown-display" class="text-4xl font-mono font-bold text-blue-600 timer-nums mb-1">
-                        --:--:--
-                    </div>
+                    <div id="countdown-display" class="text-4xl font-mono font-bold text-blue-600 timer-nums mb-1">--:--:--</div>
                     <p id="target-time-display" class="text-slate-400 text-xs"></p>
-                    <button onclick="cancelSchedule()" class="text-red-500 hover:text-red-700 text-xs font-bold mt-3 underline">
-                        Cancel Schedule
-                    </button>
+                    <button onclick="cancelSchedule()" class="text-red-500 hover:text-red-700 text-xs font-bold mt-3 underline">Cancel Schedule</button>
                 </div>
             </div>
 
-            <!-- EDITING CONTROLS (Hidden when waiting) -->
-            <div id="edit-controls">
-                <div class="px-6 pt-6 bg-white">
-                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Session Name</label>
-                    <input type="text" id="session-name-input" placeholder="e.g. Python Workshop - Week 1" oninput="saveData()"
-                        class="w-full text-xl font-bold bg-transparent border-b-2 border-slate-200 focus:border-blue-500 focus:outline-none py-2 transition text-slate-800 placeholder-slate-300">
+            <!-- EDITING CONTROLS -->
+            <div id="edit-controls" class="bg-white shrink-0">
+                <!-- Top Row: Name and Settings -->
+                <div class="px-6 pt-6 pb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div class="flex-1 w-full">
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Session Name</label>
+                        <input type="text" id="session-name-input" placeholder="e.g. Python Workshop - Week 1" oninput="saveData()"
+                            class="w-full text-xl font-bold bg-transparent border-b-2 border-slate-200 focus:border-blue-500 focus:outline-none py-1 transition text-slate-800 placeholder-slate-300">
+                    </div>
                     
-                    <!-- NEW SOUND SETTINGS -->
-                    <div class="flex items-center gap-4 mt-4 mb-2 p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm">
-                        <div class="flex items-center gap-2">
-                            <span class="text-slate-500 font-semibold">Sound:</span>
-                            <select id="sound-select" onchange="onSoundTypeChange()" class="bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-slate-700">
+                    <!-- Sound Settings Compact -->
+                    <div class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-1">
+                            <span class="text-slate-500 font-semibold text-xs uppercase">Sound</span>
+                            <select id="sound-select" onchange="onSoundTypeChange()" class="bg-white border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-slate-700">
                                 <option value="chime">✨ Chime</option>
                                 <option value="digital">🤖 Digital</option>
                                 <option value="gong">🥁 Gong</option>
                             </select>
                         </div>
-                        
-                        <div class="flex items-center gap-2 flex-1">
-                            <span class="text-slate-500 font-semibold">Vol:</span>
-                            <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5" onchange="updateSoundSettings()" class="w-24 accent-blue-600 cursor-pointer">
+                        <div class="flex items-center gap-1">
+                            <span class="text-slate-500 font-semibold text-xs uppercase">Vol</span>
+                            <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5" onchange="updateSoundSettings()" class="w-16 accent-blue-600 cursor-pointer">
                         </div>
-
-                        <button onclick="previewSound()" class="text-blue-600 hover:text-blue-800 font-bold text-xs uppercase tracking-wide px-2 py-1 rounded hover:bg-blue-50 transition">
-                            Test ▶
-                        </button>
+                        <button onclick="previewSound()" class="text-blue-600 hover:text-blue-800 font-bold text-xs uppercase tracking-wide px-2 py-1 rounded hover:bg-blue-50 transition">Test</button>
                     </div>
                 </div>
 
-                <div class="p-6 border-b border-slate-100 bg-slate-50">
-                    <div class="flex gap-2 mb-2">
-                        <input type="text" id="input-title" placeholder="Activity Name (e.g. Q&A)" 
-                            class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <!-- Add Section Bar -->
+                <div class="px-6 py-4 border-b border-t border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-2">
+                    <input type="text" id="input-title" placeholder="New Activity Name..." 
+                        class="flex-[3] px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                    
+                    <div class="flex gap-2 flex-1">
                         <input type="number" id="input-time" placeholder="Min" min="1" 
-                            class="w-20 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center">
-                    </div>
-                    <div class="flex gap-2">
-                        <select id="input-type" class="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                            class="w-20 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center shadow-sm">
+                        
+                        <select id="input-type" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
                             <option value="regular">📚 Regular</option>
                             <option value="break">☕ Break</option>
                         </select>
-                        
-                        <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden px-3 bg-slate-200 hover:bg-slate-300 text-slate-600 font-semibold rounded-lg transition">
-                            ✕
-                        </button>
+                    </div>
 
-                        <button id="btn-add-update" onclick="saveItem()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-sm">
-                            + Add Section
+                    <div class="flex gap-2 shrink-0">
+                        <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden px-4 bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold rounded-lg transition shadow-sm">✕</button>
+                        <button id="btn-add-update" onclick="saveItem()" class="px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition shadow-sm whitespace-nowrap">
+                            + Add
                         </button>
                     </div>
                 </div>
@@ -144,20 +140,28 @@
 
             <!-- AGENDA LIST -->
             <div class="flex-1 overflow-y-auto scroller p-4 bg-white relative">
-                <ul id="agenda-list" class="space-y-2"></ul>
-                <div id="empty-state" class="text-center text-slate-400 py-8 hidden">
-                    No items yet. Add a section above.
+                <ul id="agenda-list" class="space-y-2 pb-10"></ul>
+                <div id="empty-state" class="text-center text-slate-400 py-12 hidden">
+                    <div class="text-4xl mb-2">📝</div>
+                    <p>No items yet.</p>
+                    <p class="text-sm text-slate-300">Add sections above to build your session.</p>
                 </div>
             </div>
 
-            <!-- START BUTTON / FOOTER -->
-            <div id="start-controls" class="p-6 border-t border-slate-100 bg-slate-50 shrink-0 space-y-3">
-                <div class="flex items-center justify-between text-sm text-slate-500 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                    <label for="start-time-picker" class="font-semibold text-slate-600">Start Date/Time (Optional):</label>
-                    <input type="datetime-local" id="start-time-picker" class="border border-slate-300 rounded px-2 py-1 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none">
+            <!-- START FOOTER -->
+            <div id="start-controls" class="p-4 border-t border-slate-100 bg-slate-50 shrink-0 flex flex-col md:flex-row gap-3 items-center">
+                <div class="flex-1 w-full md:w-auto bg-white p-1.5 pl-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between text-sm text-slate-500 relative group">
+                    <label for="start-time-picker" class="font-medium mr-2 whitespace-nowrap">Schedule Start:</label>
+                    <!-- Clear Schedule Button -->
+                    <button id="clear-schedule-btn" onclick="clearScheduleInput()" class="hidden absolute right-2 text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-slate-100" title="Clear Date">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <input type="datetime-local" id="start-time-picker" oninput="checkScheduleInput()" class="border-none bg-transparent focus:ring-0 text-slate-700 font-mono text-sm outline-none w-full pr-8">
                 </div>
 
-                <button onclick="handleStartAction()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-4 rounded-xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-2">
+                <button onclick="handleStartAction()" class="w-full md:w-auto px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-2.5 rounded-xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span id="start-btn-text">Start Session</span>
                 </button>
@@ -168,60 +172,37 @@
         <div id="runner-view" class="hidden flex-col h-full">
             <div id="timer-bg" class="flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-500 bg-white relative">
                 <button onclick="resetSection()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition" title="Restart Section">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
 
-                <div id="current-badge" class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider mb-2">
-                    Current Section
-                </div>
+                <div id="current-badge" class="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider mb-2">Current Section</div>
+                <h2 id="timer-title" class="text-3xl md:text-5xl font-bold text-center text-slate-800 mb-2 max-w-2xl leading-tight">Loading...</h2>
+                <div id="adjustment-display" class="h-6 text-sm font-semibold text-slate-400 mb-2">Allocated: <span id="allocated-display">0m</span> <span id="diff-display"></span></div>
                 
-                <h2 id="timer-title" class="text-3xl md:text-4xl font-bold text-center text-slate-800 mb-2">
-                    Loading...
-                </h2>
-
-                <div id="adjustment-display" class="h-6 text-sm font-semibold text-slate-400 mb-2">
-                    Allocated: <span id="allocated-display">0m</span> <span id="diff-display"></span>
-                </div>
-                
-                <div class="relative flex items-center gap-4">
-                     <button onclick="adjustTime(-60)" class="text-slate-300 hover:text-red-500 transition p-2 hover:bg-slate-100 rounded-full group" title="-1 Minute">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 group-active:scale-90 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" /></svg>
+                <div class="relative flex items-center gap-6">
+                     <button onclick="adjustTime(-60)" class="text-slate-300 hover:text-red-500 transition p-3 hover:bg-slate-100 rounded-full group" title="-1 Minute">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 group-active:scale-90 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" /></svg>
                     </button>
-
-                    <div id="timer-display" class="text-8xl md:text-9xl font-black text-slate-900 timer-nums tracking-tight my-2 cursor-pointer select-none" onclick="togglePause()" title="Click to Pause/Resume">
-                        00:00
-                    </div>
-
-                    <button onclick="adjustTime(60)" class="text-slate-300 hover:text-emerald-500 transition p-2 hover:bg-slate-100 rounded-full group" title="+1 Minute">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 group-active:scale-90 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                    <div id="timer-display" class="text-8xl md:text-[10rem] font-black text-slate-900 timer-nums tracking-tight my-2 cursor-pointer select-none" onclick="togglePause()" title="Click to Pause/Resume">00:00</div>
+                    <button onclick="adjustTime(60)" class="text-slate-300 hover:text-emerald-500 transition p-3 hover:bg-slate-100 rounded-full group" title="+1 Minute">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 group-active:scale-90 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                     </button>
                 </div>
 
-                <div id="next-preview" class="text-slate-400 font-medium flex items-center gap-2 mt-4">
+                <div id="next-preview" class="text-slate-400 font-medium flex items-center gap-2 mt-6">
                     <span class="text-xs uppercase tracking-widest">Up Next:</span>
                     <span id="next-title-text">...</span>
                 </div>
             </div>
 
             <div class="bg-slate-50 border-t border-slate-200 p-6">
-                <div class="w-full bg-slate-200 rounded-full h-2 mb-6 overflow-hidden">
-                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                <div class="w-full bg-slate-200 rounded-full h-3 mb-6 overflow-hidden">
+                    <div id="progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-1000" style="width: 0%"></div>
                 </div>
-
                 <div class="flex justify-center gap-4">
-                    <button onclick="stopSession()" class="px-6 py-3 rounded-lg text-slate-600 hover:bg-slate-200 font-semibold transition">
-                        End
-                    </button>
-                    
-                    <button id="btn-pause" onclick="togglePause()" class="w-32 px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2">
-                        <span>⏸</span> Pause
-                    </button>
-                    
-                    <button onclick="skipSection()" class="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transition flex items-center gap-2">
-                        Next <span>⏭</span>
-                    </button>
+                    <button onclick="stopSession()" class="px-6 py-3 rounded-lg text-slate-600 hover:bg-slate-200 font-semibold transition">End</button>
+                    <button id="btn-pause" onclick="togglePause()" class="w-32 px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2"><span>⏸</span> Pause</button>
+                    <button onclick="skipSection()" class="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transition flex items-center gap-2">Next <span>⏭</span></button>
                 </div>
             </div>
         </div>
@@ -233,20 +214,15 @@
                 <p class="text-slate-500 text-sm">Comparison of allocated vs actual time.</p>
             </div>
             <div class="flex-1 overflow-y-auto scroller p-4">
-                <div id="summary-list" class="space-y-3">
-                    <!-- Summary items injected here -->
-                </div>
+                <div id="summary-list" class="space-y-3"></div>
             </div>
             <div class="p-6 border-t border-slate-200 bg-white shrink-0">
-                <button onclick="restartApp()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg text-lg shadow-md transition">
-                    Start New Session
-                </button>
+                <button onclick="restartApp()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg text-lg shadow-md transition">Start New Session</button>
             </div>
         </div>
 
     </div>
 
-    <!-- Audio Element -->
     <audio id="chime" src=""></audio>
 
     <script>
@@ -259,19 +235,13 @@
             { id: 5, title: "Q&A", duration: 10, type: "regular", muted: false, adjustment: 0 }
         ];
 
-        // Sound Assets
         const soundAssets = {
             'chime': 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
             'digital': 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
             'gong': 'https://assets.mixkit.co/active_storage/sfx/2674/2674-preview.mp3'
         };
 
-        // Recommended Presets (0.0 - 1.0)
-        const soundPresets = {
-            'chime': 0.2,
-            'digital': 0.4,
-            'gong': 0.3
-        };
+        const soundPresets = { 'chime': 0.5, 'digital': 0.4, 'gong': 0.8 };
 
         let agenda = [];
         let currentIndex = 0;
@@ -284,10 +254,8 @@
         let toastTimeout = null;
         let sessionName = "Session Master";
         let dragSrcIndex = null;
-        
-        // Settings State
         let soundSettings = { id: 'chime', volume: 0.5 };
-        let soundTimeout = null; // To track limit
+        let soundTimeout = null; 
 
         // --- LOAD/SAVE ---
         function loadData() {
@@ -297,11 +265,8 @@
                 agenda = (parsed.agenda || []).map(item => ({...item, adjustment: item.adjustment || 0}));
                 sessionName = parsed.sessionName || "Session Master";
                 document.getElementById('session-name-input').value = parsed.sessionName || "";
-                
-                // Load Settings
                 if (parsed.soundSettings) {
                     soundSettings = parsed.soundSettings;
-                    // Fix if bell saved
                     if(soundSettings.id === 'bell' || soundSettings.id === 'soft-bell') soundSettings.id = 'chime';
                     document.getElementById('sound-select').value = soundSettings.id;
                     document.getElementById('volume-slider').value = soundSettings.volume;
@@ -317,16 +282,11 @@
             const nameInput = document.getElementById('session-name-input').value.trim();
             sessionName = nameInput || "Session Master";
             if(sessionName) document.getElementById('header-title').innerText = sessionName;
-
-            localStorage.setItem('sessionMaster_data_v2', JSON.stringify({
-                agenda: agenda,
-                sessionName: sessionName,
-                soundSettings: soundSettings
-            }));
+            localStorage.setItem('sessionMaster_data_v2', JSON.stringify({ agenda, sessionName, soundSettings }));
         }
 
         function clearData() {
-            if(confirm("Are you sure you want to reset all data to default?")) {
+            if(confirm("Factory Reset: This will delete all your session data and restore defaults. Continue?")) {
                 localStorage.removeItem('sessionMaster_data_v2');
                 location.reload();
             }
@@ -338,11 +298,7 @@
             const emptyEl = document.getElementById('empty-state');
             listEl.innerHTML = '';
             
-            if (agenda.length === 0) {
-                emptyEl.classList.remove('hidden');
-            } else {
-                emptyEl.classList.add('hidden');
-            }
+            if (agenda.length === 0) { emptyEl.classList.remove('hidden'); } else { emptyEl.classList.add('hidden'); }
 
             let totalMins = 0;
             agenda.forEach((item, index) => {
@@ -352,14 +308,12 @@
                 const activeClass = isEditing ? 'ring-2 ring-blue-400 bg-blue-50' : 'bg-white';
                 const isMuted = item.muted === true;
 
-                li.className = `draggable-item flex items-center justify-between p-3 border border-slate-200 rounded-lg shadow-sm group ${item.type === 'break' ? 'border-l-4 border-l-amber-400' : ''} ${activeClass} transition-all duration-200`;
+                li.className = `draggable-item flex items-center justify-between p-3 border border-slate-200 rounded-lg shadow-sm group ${item.type === 'break' ? 'border-l-4 border-l-amber-400' : ''} ${activeClass}`;
                 li.setAttribute('draggable', 'true');
-                li.setAttribute('data-index', index);
+                li.setAttribute('data-id', item.id);
+                
                 li.addEventListener('dragstart', handleDragStart);
                 li.addEventListener('dragover', handleDragOver);
-                li.addEventListener('dragenter', handleDragEnter);
-                li.addEventListener('dragleave', handleDragLeave);
-                li.addEventListener('drop', handleDrop);
                 li.addEventListener('dragend', handleDragEnd);
 
                 li.innerHTML = `
@@ -367,23 +321,13 @@
                         <div class="text-slate-300 cursor-grab">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
                         </div>
-                        <div class="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded min-w-[3rem] text-center">
-                            ${item.duration}m
-                        </div>
-                        <div class="truncate font-medium text-slate-700">
-                            ${item.type === 'break' ? '☕ ' : ''}${item.title}
-                        </div>
+                        <div class="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded min-w-[3rem] text-center">${item.duration}m</div>
+                        <div class="truncate font-medium text-slate-700">${item.type === 'break' ? '☕ ' : ''}${item.title}</div>
                     </div>
                     <div class="flex gap-1 items-center shrink-0">
-                        <button onclick="toggleMute(${index})" class="transition p-1 hover:bg-slate-100 rounded" title="${isMuted ? "Unmute" : "Mute"}">
-                            ${isMuted ? '🔕' : '🔔'}
-                        </button>
-                        <button onclick="editItem(${index})" class="text-slate-300 hover:text-blue-500 transition p-1" title="Edit">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                        </button>
-                        <button onclick="removeItem(${index})" class="text-slate-300 hover:text-red-500 transition p-1" title="Remove">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                        </button>
+                        <button onclick="toggleMute(${index})" class="transition p-1 hover:bg-slate-100 rounded" title="${isMuted ? "Unmute" : "Mute"}">${isMuted ? '🔕' : '🔔'}</button>
+                        <button onclick="editItem(${index})" class="text-slate-300 hover:text-blue-500 transition p-1" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg></button>
+                        <button onclick="removeItem(${index})" class="text-slate-300 hover:text-red-500 transition p-1" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></button>
                     </div>
                 `;
                 listEl.appendChild(li);
@@ -393,25 +337,31 @@
             document.getElementById('total-time-display').innerText = `${h}h ${m}m`;
         }
 
-        // --- DRAG HELPERS ---
-        function handleDragStart(e) { this.classList.add('dragging'); dragSrcIndex = Number(this.getAttribute('data-index')); e.dataTransfer.effectAllowed = 'move'; }
-        function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
-        function handleDragEnter(e) { this.classList.add('bg-slate-50', 'border-blue-300', 'border-dashed'); }
-        function handleDragLeave(e) { this.classList.remove('bg-slate-50', 'border-blue-300', 'border-dashed'); }
-        function handleDrop(e) {
-            if (e.stopPropagation) e.stopPropagation();
-            const destIndex = Number(this.getAttribute('data-index'));
-            if (dragSrcIndex !== null && dragSrcIndex !== destIndex) {
-                const itemToMove = agenda[dragSrcIndex];
-                agenda.splice(dragSrcIndex, 1);
-                agenda.splice(destIndex, 0, itemToMove);
-                saveData(); renderList();
-            }
-            return false;
+        // --- DRAG LOGIC ---
+        function handleDragStart(e) { this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+        function handleDragOver(e) {
+            e.preventDefault();
+            const container = document.getElementById('agenda-list');
+            const afterElement = getDragAfterElement(container, e.clientY);
+            const draggable = document.querySelector('.dragging');
+            if (afterElement == null) { container.appendChild(draggable); } else { container.insertBefore(draggable, afterElement); }
+        }
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } else { return closest; }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
         function handleDragEnd(e) {
             this.classList.remove('dragging');
-            document.querySelectorAll('.draggable-item').forEach(item => { item.classList.remove('bg-slate-50', 'border-blue-300', 'border-dashed'); });
+            const listEl = document.getElementById('agenda-list');
+            const newOrderIds = Array.from(listEl.children).map(li => Number(li.getAttribute('data-id')));
+            const newAgenda = [];
+            newOrderIds.forEach(id => { const item = agenda.find(i => i.id === id); if(item) newAgenda.push(item); });
+            if(newAgenda.length === agenda.length) { agenda = newAgenda; saveData(); renderList(); } 
+            else { console.error("Drag sync error"); renderList(); }
         }
 
         // --- AGENDA ACTIONS ---
@@ -445,7 +395,7 @@
             document.getElementById('input-time').value = item.duration;
             document.getElementById('input-type').value = item.type;
             const btn = document.getElementById('btn-add-update');
-            btn.innerHTML = 'Update Section';
+            btn.innerHTML = 'Update';
             btn.classList.replace('bg-blue-600', 'bg-amber-500');
             btn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
             document.getElementById('btn-cancel-edit').classList.remove('hidden');
@@ -456,7 +406,7 @@
             document.getElementById('input-title').value = '';
             document.getElementById('input-time').value = '';
             const btn = document.getElementById('btn-add-update');
-            btn.innerHTML = '+ Add Section';
+            btn.innerHTML = '+ Add';
             btn.classList.replace('bg-amber-500', 'bg-blue-600');
             btn.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700');
             document.getElementById('btn-cancel-edit').classList.add('hidden');
@@ -487,10 +437,7 @@
             document.getElementById('waiting-header').classList.add('flex');
             document.getElementById('edit-controls').classList.add('hidden');
             document.getElementById('start-controls').classList.add('hidden');
-            
-            // Set name
             document.getElementById('waiting-session-name').innerText = sessionName || "Session";
-            
             document.getElementById('target-time-display').innerText = `Starts: ${new Date(targetTime).toLocaleString()}`;
             updateCountdown(targetTime);
             countdownInterval = setInterval(() => {
@@ -523,7 +470,7 @@
 
         function stopSession() {
             clearInterval(timerInterval);
-            stopSound(); // Ensure sound stops
+            stopSound();
             document.getElementById('setup-view').classList.remove('hidden');
             document.getElementById('runner-view').classList.add('hidden');
             document.getElementById('runner-view').classList.remove('flex');
@@ -540,7 +487,7 @@
         function loadSection(index) {
             if (index >= agenda.length) { finishSession(); return; }
             const item = agenda[index];
-            agenda[index].adjustment = 0; // Reset tracking for this run
+            agenda[index].adjustment = 0;
             timeLeft = item.duration * 60;
             updateSectionUI(item);
             updateDisplay();
@@ -585,10 +532,7 @@
         }
 
         function skipSection() {
-            // Finalize adjustment logic for early finish
             if (timeLeft > 0) {
-                // If skipping with time on clock, we finished early. 
-                // Adjust so that (Duration + Adj) = Actual Time spent.
                 agenda[currentIndex].adjustment = (agenda[currentIndex].adjustment || 0) - timeLeft;
             }
             currentIndex++;
@@ -599,12 +543,10 @@
             if (isPaused) return;
             const currentItem = agenda[currentIndex];
             const halfTime = Math.floor((currentItem.duration * 60) / 2);
-            
             if (timeLeft === halfTime && currentItem.duration >= 15 && !currentItem.muted) {
                  showToast(`Halfway Mark! ${Math.floor(timeLeft/60)} minutes remaining.`);
                  if (document.hidden) sendSystemNotification("Halfway Mark!", `You are halfway through ${currentItem.title}`);
             }
-
             if (timeLeft > 0) {
                 timeLeft--;
                 updateDisplay();
@@ -629,7 +571,6 @@
                 diffEl.className = adjSec > 0 ? "text-emerald-500 ml-1" : "text-red-500 ml-1";
             } else { diffEl.innerText = ""; }
 
-            // Progress bar
             let elapsedPrior = 0;
             for(let i=0; i<currentIndex; i++) elapsedPrior += agenda[i].duration * 60;
             const currentTotalStart = (agenda[currentIndex].duration * 60) + (agenda[currentIndex].adjustment || 0);
@@ -644,7 +585,6 @@
             document.getElementById('runner-view').classList.remove('flex');
             document.getElementById('summary-view').classList.remove('hidden');
             document.getElementById('summary-view').classList.add('flex');
-            
             renderSummary();
             playSound();
             sendSystemNotification("All Done", "The session has concluded!");
@@ -653,41 +593,22 @@
         function renderSummary() {
             const list = document.getElementById('summary-list');
             list.innerHTML = '';
-
             agenda.forEach(item => {
                 const allocatedMins = item.duration;
-                // Actual = Allocated + (Adjustment / 60)
                 const actualMins = allocatedMins + ((item.adjustment || 0) / 60);
-                
-                let badgeClass = "";
-                let badgeText = "";
-                let rowClass = "bg-white border-slate-200";
+                let badgeClass = "", badgeText = "", rowClass = "bg-white border-slate-200";
 
                 if (actualMins < (allocatedMins * 0.8)) {
-                    badgeClass = "bg-slate-100 text-slate-600 border-slate-200";
-                    badgeText = "Early";
-                    rowClass = "bg-slate-50 border-slate-200 opacity-80";
+                    badgeClass = "bg-slate-100 text-slate-600 border-slate-200"; badgeText = "Early"; rowClass = "bg-slate-50 border-slate-200 opacity-80";
                 } else if (actualMins > (allocatedMins + 2)) {
-                    badgeClass = "bg-red-50 text-red-600 border-red-200";
-                    badgeText = "Overtime";
-                    rowClass = "bg-red-50 border-red-200";
+                    badgeClass = "bg-red-50 text-red-600 border-red-200"; badgeText = "Overtime"; rowClass = "bg-red-50 border-red-200";
                 } else {
-                    badgeClass = "bg-emerald-50 text-emerald-600 border-emerald-200";
-                    badgeText = "On Time";
+                    badgeClass = "bg-emerald-50 text-emerald-600 border-emerald-200"; badgeText = "On Time";
                 }
-
                 const displayActual = Math.round(actualMins * 10) / 10;
                 const el = document.createElement('div');
                 el.className = `flex items-center justify-between p-4 rounded-lg border ${rowClass}`;
-                el.innerHTML = `
-                    <div>
-                        <div class="font-bold text-slate-800">${item.title}</div>
-                        <div class="text-xs text-slate-500 mt-1">Allocated: ${allocatedMins}m &middot; Actual: ${displayActual}m</div>
-                    </div>
-                    <div class="px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}">
-                        ${badgeText}
-                    </div>
-                `;
+                el.innerHTML = `<div><div class="font-bold text-slate-800">${item.title}</div><div class="text-xs text-slate-500 mt-1">Allocated: ${allocatedMins}m &middot; Actual: ${displayActual}m</div></div><div class="px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}">${badgeText}</div>`;
                 list.appendChild(el);
             });
         }
@@ -710,54 +631,50 @@
         // --- SOUND LOGIC ---
         function onSoundTypeChange() {
             const id = document.getElementById('sound-select').value;
-            // Apply Preset
             const presetVol = soundPresets[id] || 0.5;
             document.getElementById('volume-slider').value = presetVol;
             updateSoundSettings();
         }
-
         function updateSoundSettings() {
             const id = document.getElementById('sound-select').value;
             const volume = document.getElementById('volume-slider').value;
             soundSettings = { id, volume };
             saveData();
         }
-
-        function stopSound() {
-            if (soundTimeout) clearTimeout(soundTimeout);
-            const audio = document.getElementById('chime');
-            audio.pause();
-            audio.currentTime = 0;
-        }
-
+        function stopSound() { if (soundTimeout) clearTimeout(soundTimeout); const audio = document.getElementById('chime'); audio.pause(); audio.currentTime = 0; }
         function previewSound() {
-            stopSound(); // Ensure prev sound stops
-            const audio = document.getElementById('chime');
-            audio.src = soundAssets[soundSettings.id];
-            audio.volume = soundSettings.volume;
-            audio.play().catch(e => console.log("Audio play failed"));
-            
+            stopSound(); const audio = document.getElementById('chime'); audio.src = soundAssets[soundSettings.id]; audio.volume = soundSettings.volume; audio.play().catch(e => console.log("Audio play failed"));
             const duration = (soundSettings.id === 'gong') ? 2000 : 5000;
             soundTimeout = setTimeout(stopSound, duration);
         }
-
         function playSound() { 
-            stopSound(); // Ensure prev sound stops
-            const audio = document.getElementById('chime');
-            audio.src = soundAssets[soundSettings.id];
-            audio.volume = soundSettings.volume;
-            audio.play().catch(e => console.log("Audio play failed")); 
-            
+            stopSound(); const audio = document.getElementById('chime'); audio.src = soundAssets[soundSettings.id]; audio.volume = soundSettings.volume; audio.play().catch(e => console.log("Audio play failed")); 
             const duration = (soundSettings.id === 'gong') ? 2000 : 5000;
             soundTimeout = setTimeout(stopSound, duration); 
+        }
+        
+        // --- SCHEDULING LOGIC ---
+        function checkScheduleInput() {
+            const picker = document.getElementById('start-time-picker');
+            const clearBtn = document.getElementById('clear-schedule-btn');
+            if(picker.value) {
+                clearBtn.classList.remove('hidden');
+                document.getElementById('start-btn-text').innerText = "Start Session";
+            } else {
+                clearBtn.classList.add('hidden');
+                document.getElementById('start-btn-text').innerText = "Start Session";
+            }
+        }
+
+        function clearScheduleInput() {
+            document.getElementById('start-time-picker').value = '';
+            checkScheduleInput();
         }
 
         function updateCountdown(targetTime) {
            const dist = targetTime - Date.now();
            if (dist > 0) {
-               const h = Math.floor((dist % (86400000)) / 3600000);
-               const m = Math.floor((dist % 3600000) / 60000);
-               const s = Math.floor((dist % 60000) / 1000);
+               const h = Math.floor((dist % (86400000)) / 3600000); const m = Math.floor((dist % 3600000) / 60000); const s = Math.floor((dist % 60000) / 1000);
                document.getElementById('countdown-display').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
            }
         }
@@ -770,6 +687,7 @@
 
         // Init
         loadData(); renderList();
+        checkScheduleInput(); // Init schedule UI state
         document.getElementById('input-time').addEventListener('keypress', function (e) { if (e.key === 'Enter') saveItem(); });
 
     </script>
