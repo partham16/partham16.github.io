@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual NumPy v2.6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0;
+        }
+        .code-font { font-family: 'Fira Code', monospace; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        
+        canvas {
+            background-image: radial-gradient(#334155 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+            width: 100%;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            margin-top: -6px;
+            box-shadow: 0 0 0 2px #0f172a;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            background: #475569;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside class="w-full md:w-80 flex-shrink-0 bg-slate-800 border-r border-slate-700 flex flex-col z-10 shadow-xl">
+        
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-700">
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
+                Visual NumPy
+            </h1>
+            <p class="text-xs text-slate-400 mt-1">Interactive Array Engine</p>
+        </div>
+
+        <!-- Mode Selector -->
+        <div class="p-4 bg-slate-800 border-b border-slate-700">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lesson Mode</label>
+            <select id="modeSelect" onchange="changeMode()" class="w-full mt-2 bg-slate-900 text-white text-sm border border-slate-600 rounded p-2 outline-none focus:border-cyan-500 transition">
+                <option value="basic">1. Indexing & Slicing</option>
+                <option value="reshape">2. Reshape</option>
+                <option value="math">3. Broadcasting & Math</option>
+                <option value="aggregation">4. Aggregation (Sum/Max)</option>
+                <option value="dot">5. Matrix Product (Dot)</option>
+            </select>
+        </div>
+
+        <!-- Dynamic Controls Container -->
+        <div id="controlsArea" class="flex-1 overflow-y-auto p-6 space-y-6">
+            <!-- Injected via JS based on mode -->
+        </div>
+
+        <!-- Info Footer -->
+        <div class="p-4 bg-slate-900 border-t border-slate-700 text-[10px] text-slate-500 text-center">
+            v2.6 | Auto-Scaling & Layout Fixes
+        </div>
+    </aside>
+
+    <!-- MAIN CANVAS -->
+    <main class="flex-1 relative bg-slate-900 flex flex-col">
+        <!-- Python Code Bar -->
+        <div class="h-14 bg-slate-950 border-b border-slate-800 flex items-center px-6 shadow-md z-10 justify-between">
+            <div class="flex items-center overflow-hidden">
+                <span class="text-slate-500 text-xs font-bold mr-3 uppercase tracking-wider flex-shrink-0">Python:</span>
+                <code id="codeDisplay" class="code-font text-green-400 text-sm md:text-base whitespace-nowrap">...</code>
+            </div>
+            <div id="shapeInfo" class="text-xs text-slate-500 code-font ml-4 flex-shrink-0"></div>
+        </div>
+
+        <!-- Canvas Wrapper -->
+        <div class="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-900">
+            <canvas id="mainCanvas"></canvas>
+            
+            <!-- Floating Tooltip -->
+            <div id="tooltip" class="absolute pointer-events-none bg-slate-800/95 backdrop-blur border border-slate-600 text-white text-xs p-3 rounded shadow-2xl opacity-0 transition-opacity z-50 max-w-xs whitespace-nowrap">
+                <!-- Content -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        /**
+         * VISUAL NUMPY ENGINE v2.6
+         */
+
+        // --- DYNAMIC CONFIG ---
+        // These are now mutable based on screen size
+        let METRICS = {
+            cellSize: 50,
+            cellGap: 8,
+            spacing: 220
+        };
+
+        const THEME = {
+            arrA: { bg: '#1e293b', border: '#3b82f6', cell: '#334155', text: '#fff' }, // Blue
+            arrB: { bg: '#1e293b', border: '#ec4899', cell: '#334155', text: '#fff' }, // Pink
+            res:  { bg: '#1e293b', border: '#10b981', cell: '#0f172a', text: '#fff' }, // Green
+            highlight: '#fbbf24', // Amber
+            slice: 'rgba(251, 191, 36, 0.15)', // Amber transparent
+            dim: 'rgba(30, 41, 59, 0.3)',
+            index: '#64748b'
+        };
+
+        // --- STATE ---
+        let app = {
+            mode: 'basic',
+            canvas: document.getElementById('mainCanvas'),
+            ctx: document.getElementById('mainCanvas').getContext('2d'),
+            width: 0,
+            height: 0,
+            hovered: null, // { arrayId, r, c, idx }
+            arrays: [],
+            cache: { data: [], rows: -1, cols: -1 },
+            settings: {
+                rows: 4, cols: 5,
+                operandType: 'array', 
+                scalarVal: 2,
+                mathOp: 'add',
+                slice: { rStart: 0, rEnd: 2, cStart: 0, cEnd: 3 },
+                aggAxis: -1,
+                aggType: 'sum',
+                commonK: 3,
+                colsB: 2,
+                reshapeRows: 2,
+                reshapeCols: 10
+                // Transpose removed
+            }
+        };
+
+        // --- VISUAL OBJECTS ---
+        class VisualArray {
+            constructor(id, label, rows, cols, data, relX, relY, theme) {
+                this.id = id; 
+                this.label = label;
+                this.rows = rows;
+                this.cols = cols;
+                this.data = data;
+                this.relX = relX; // Stored relative position
+                this.relY = relY;
+                this.theme = theme;
+                
+                // Dimensions calculated dynamically in updateMetrics()
+                this.updateMetrics();
+            }
+
+            updateMetrics() {
+                this.width = this.cols * (METRICS.cellSize + METRICS.cellGap) - METRICS.cellGap;
+                this.height = this.rows * (METRICS.cellSize + METRICS.cellGap) - METRICS.cellGap;
+            }
+
+            contains(mx, my) {
+                const pad = 10;
+                return mx >= this.x - pad && mx <= this.x + this.width + pad &&
+                       my >= this.y - pad && my <= this.y + this.height + pad;
+            }
+
+            getCell(mx, my) {
+                if (!this.contains(mx, my)) return null;
+                const localX = mx - this.x;
+                const localY = my - this.y;
+                const fullCell = METRICS.cellSize + METRICS.cellGap;
+                const c = Math.floor(localX / fullCell);
+                const r = Math.floor(localY / fullCell);
+                
+                if (localX % fullCell > METRICS.cellSize || localY % fullCell > METRICS.cellSize) return null;
+                if (c >= this.cols || r >= this.rows || c < 0 || r < 0) return null;
+                
+                return { r, c, idx: r * this.cols + c };
+            }
+        }
+
+        // --- CORE LOGIC ---
+
+        function changeMode() {
+            app.mode = document.getElementById('modeSelect').value;
+            // Reset reshape params
+            if(app.mode === 'reshape') {
+                app.settings.reshapeRows = app.settings.rows;
+                app.settings.reshapeCols = app.settings.cols;
+            }
+            buildControls();
+            generateScene();
+        }
+
+        function getData(rows, cols, forceNew = false) {
+            if (!forceNew && app.cache.rows === rows && app.cache.cols === cols && app.cache.data.length > 0) {
+                return [...app.cache.data];
+            }
+            const data = Array.from({length: rows*cols}, () => Math.floor(Math.random() * 9) + 1);
+            app.cache = { data, rows, cols };
+            return data;
+        }
+
+        function generateScene(forceNewData = false) {
+            app.arrays = [];
+            const { rows, cols } = app.settings;
+            const dataA = getData(rows, cols, forceNewData);
+
+            // MODE: BASIC
+            if (app.mode === 'basic') {
+                const arr = new VisualArray('basic_arr', 'arr', rows, cols, dataA, 0, 0, THEME.arrA);
+                const { rStart, rEnd, cStart, cEnd } = app.settings.slice;
+                const sliceStr = `arr[${rStart}:${rEnd}, ${cStart}:${cEnd}]`;
+                app.arrays.push(arr);
+                updatePythonDisplay(sliceStr);
+                updateShapeInfo(`(${rows}, ${cols})`);
+            }
+
+            // MODE: RESHAPE (Transpose Removed)
+            else if (app.mode === 'reshape') {
+                const arrA = new VisualArray('source', 'arr', rows, cols, dataA, -1, 0, THEME.arrA); 
+                // relX will be multiplied by dynamic spacing
+                app.arrays.push(arrA);
+
+                const rNew = app.settings.reshapeRows;
+                const cNew = app.settings.reshapeCols;
+                const valid = (rNew * cNew) === (rows * cols);
+                
+                if (valid) {
+                    const arrB = new VisualArray('target', 'reshaped', rNew, cNew, dataA, 1, 0, THEME.res);
+                    app.arrays.push(arrB);
+                    updatePythonDisplay(`arr.reshape(${rNew}, ${cNew})`);
+                    updateShapeInfo(`(${rows}, ${cols}) ➝ (${rNew}, ${cNew})`);
+                } else {
+                    updatePythonDisplay(`# Error: Cannot reshape size ${rows*cols} into (${rNew},${cNew})`);
+                    updateShapeInfo(`Invalid Shape`);
+                }
+            }
+
+            // MODE: MATH
+            else if (app.mode === 'math') {
+                const opType = app.settings.operandType;
+                let rowsB = rows, colsB = cols;
+                let dataB;
+                let labelB = 'B';
+
+                if (opType === 'scalar') {
+                    rowsB = 1; colsB = 1;
+                    dataB = [app.settings.scalarVal];
+                    labelB = 'Scalar';
+                } else if (opType === 'row') {
+                    rowsB = 1; colsB = cols;
+                    dataB = createRandomData(1, cols);
+                    labelB = 'B (1, n)';
+                } else if (opType === 'col') {
+                    rowsB = rows; colsB = 1;
+                    dataB = createRandomData(rows, 1);
+                    labelB = 'B (n, 1)';
+                } else {
+                    dataB = createRandomData(rows, cols);
+                    labelB = 'B';
+                }
+
+                const dataRes = performMath(dataA, dataB, rows, cols, rowsB, colsB, app.settings.mathOp);
+                
+                // Use relative units (-1, 0, 1) instead of pixels, we scale later
+                app.arrays.push(new VisualArray('opA', 'A', rows, cols, dataA, -1.2, 0, THEME.arrA));
+                app.arrays.push(new VisualArray('opB', labelB, rowsB, colsB, dataB, 0, 0, THEME.arrB));
+                app.arrays.push(new VisualArray('res', 'Result', rows, cols, dataRes, 1.2, 0, THEME.res));
+
+                const sym = getOpSymbol(app.settings.mathOp);
+                updatePythonDisplay(`res = A ${sym} ${opType === 'scalar' ? app.settings.scalarVal : 'B'}`);
+                updateShapeInfo(opType === 'array' ? `Element-wise` : `Broadcasting`);
+            }
+
+            // MODE: AGGREGATION
+            else if (app.mode === 'aggregation') {
+                const { resData, resRows, resCols } = performAgg(dataA, rows, cols, app.settings.aggType, app.settings.aggAxis);
+                app.arrays.push(new VisualArray('agg_src', 'arr', rows, cols, dataA, -0.8, 0, THEME.arrA));
+                app.arrays.push(new VisualArray('agg_res', 'out', resRows, resCols, resData, 0.8, 0, THEME.res));
+
+                let axisStr = app.settings.aggAxis === -1 ? '' : `, axis=${app.settings.aggAxis}`;
+                updatePythonDisplay(`out = np.${app.settings.aggType}(arr${axisStr})`);
+                updateShapeInfo(`Reduces (${rows},${cols}) to (${resRows},${resCols})`);
+            }
+
+            // MODE: DOT PRODUCT
+            else if (app.mode === 'dot') {
+                const M = rows;
+                const K = app.settings.commonK;
+                const N = app.settings.colsB;
+
+                const matA = createRandomData(M, K);
+                const matB = createRandomData(K, N);
+                const matC = performDot(matA, matB, M, K, N);
+
+                // Complex layout for dot product
+                app.arrays.push(new VisualArray('dotA', 'A', M, K, matA, -1.2, 0.2, THEME.arrA));
+                app.arrays.push(new VisualArray('dotB', 'B', K, N, matB, 0.5, -0.8, THEME.arrB));
+                app.arrays.push(new VisualArray('dotC', 'C', M, N, matC, 0.5, 0.2, THEME.res));
+
+                updatePythonDisplay(`C = A @ B  # (${M},${K}) @ (${K},${N})`);
+                updateShapeInfo(`Matrix Multiplication`);
+            }
+
+            layoutArrays();
+            draw();
+        }
+
+        // --- MATH HELPERS ---
+
+        function createRandomData(r, c) {
+            return Array.from({length: r*c}, () => Math.floor(Math.random() * 9) + 1);
+        }
+
+        function performMath(A, B, rA, cA, rB, cB, op) {
+            const res = [];
+            for(let r=0; r<rA; r++) {
+                for(let c=0; c<cA; c++) {
+                    const valA = A[r * cA + c];
+                    let valB;
+                    if (rB === 1 && cB === 1) valB = B[0]; 
+                    else if (rB === 1) valB = B[c]; 
+                    else if (cB === 1) valB = B[r]; 
+                    else valB = B[r * cB + c]; 
+                    
+                    let val = 0;
+                    if(op === 'add') val = valA + valB;
+                    if(op === 'sub') val = valA - valB;
+                    if(op === 'mul') val = valA * valB;
+                    if(op === 'div') val = parseFloat((valA / valB).toFixed(1));
+                    res.push(val);
+                }
+            }
+            return res;
+        }
+
+        function performAgg(data, r, c, type, axis) {
+            let resData = [];
+            let resR = 1, resC = 1;
+
+            if (axis === -1) {
+                const val = type === 'sum' ? data.reduce((a,b)=>a+b, 0) : Math.max(...data);
+                resData = [val];
+            } else if (axis === 0) { 
+                resR = 1; resC = c;
+                for(let j=0; j<c; j++) {
+                    let colVals = [];
+                    for(let i=0; i<r; i++) colVals.push(data[i*c + j]);
+                    resData.push(type === 'sum' ? colVals.reduce((a,b)=>a+b,0) : Math.max(...colVals));
+                }
+            } else if (axis === 1) { 
+                resR = r; resC = 1;
+                for(let i=0; i<r; i++) {
+                    let rowVals = [];
+                    for(let j=0; j<c; j++) rowVals.push(data[i*c + j]);
+                    resData.push(type === 'sum' ? rowVals.reduce((a,b)=>a+b,0) : Math.max(...rowVals));
+                }
+            }
+            return { resData, resRows: resR, resCols: resC };
+        }
+
+        function performDot(A, B, M, K, N) {
+            let C = new Array(M * N).fill(0);
+            for(let i=0; i<M; i++) {
+                for(let j=0; j<N; j++) {
+                    let sum = 0;
+                    for(let k=0; k<K; k++) {
+                        sum += A[i*K + k] * B[k*N + j];
+                    }
+                    C[i*N + j] = sum;
+                }
+            }
+            return C;
+        }
+
+        function layoutArrays() {
+            const cx = app.width / 2;
+            const cy = app.height / 2;
+            
+            app.arrays.forEach(arr => {
+                // Determine position based on relative coordinates and current spacing
+                let offsetX = arr.relX * METRICS.spacing;
+                let offsetY = arr.relY * METRICS.spacing;
+
+                // Special handling for basic mode (always centered)
+                if (app.mode === 'basic') { offsetX = 0; offsetY = 0; }
+
+                arr.x = cx + offsetX - arr.width / 2;
+                arr.y = cy + offsetY - arr.height / 2;
+            });
+        }
+
+        // --- DRAWING ---
+
+        function draw() {
+            app.ctx.fillStyle = '#0f172a';
+            app.ctx.fillRect(0, 0, app.width, app.height);
+            drawConnectors();
+            app.arrays.forEach(arr => drawArray(arr));
+            drawHoverLayer();
+        }
+
+        function drawConnectors() {
+            const ctx = app.ctx;
+            ctx.fillStyle = '#64748b';
+            
+            // Adjust font size based on metrics
+            ctx.font = `bold ${METRICS.cellSize * 0.5}px Inter`;
+            
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const cx = app.width / 2;
+            const cy = app.height / 2;
+            const sp = METRICS.spacing;
+
+            if (app.mode === 'math') {
+                const sym = getOpSymbol(app.settings.mathOp);
+                ctx.fillText(sym, cx - sp * 0.6, cy);
+                ctx.fillText('=', cx + sp * 0.6, cy);
+            } else if (app.mode === 'reshape') {
+                ctx.beginPath();
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 2;
+                ctx.moveTo(cx - 50, cy);
+                ctx.lineTo(cx + 50, cy);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(cx + 40, cy - 10);
+                ctx.lineTo(cx + 50, cy);
+                ctx.lineTo(cx + 40, cy + 10);
+                ctx.stroke();
+            }
+        }
+
+        function drawArray(arr) {
+            const ctx = app.ctx;
+            
+            ctx.fillStyle = arr.theme.text;
+            ctx.font = 'bold 14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(arr.label, arr.x + arr.width/2, arr.y - 20);
+
+            ctx.fillStyle = THEME.index;
+            ctx.font = '10px Fira Code';
+            
+            // Draw axis labels if there's space
+            if (METRICS.cellSize > 30) {
+                for(let c=0; c<arr.cols; c++) {
+                    const x = arr.x + c * (METRICS.cellSize + METRICS.cellGap) + METRICS.cellSize/2;
+                    ctx.fillText(c, x, arr.y - 5);
+                }
+                for(let r=0; r<arr.rows; r++) {
+                    const y = arr.y + r * (METRICS.cellSize + METRICS.cellGap) + METRICS.cellSize/2;
+                    ctx.fillText(r, arr.x - 10, y + 3);
+                }
+            }
+
+            for (let r = 0; r < arr.rows; r++) {
+                for (let c = 0; c < arr.cols; c++) {
+                    const idx = r * arr.cols + c;
+                    const x = arr.x + c * (METRICS.cellSize + METRICS.cellGap);
+                    const y = arr.y + r * (METRICS.cellSize + METRICS.cellGap);
+                    
+                    let isSliced = false;
+                    if (app.mode === 'basic') {
+                        const s = app.settings.slice;
+                        if (r >= s.rStart && r < s.rEnd && c >= s.cStart && c < s.cEnd) {
+                            isSliced = true;
+                        }
+                    }
+
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, METRICS.cellSize, METRICS.cellSize, 6);
+                    
+                    if (isSliced) {
+                        ctx.fillStyle = THEME.slice;
+                        ctx.strokeStyle = THEME.highlight;
+                        ctx.lineWidth = 2;
+                    } else {
+                        ctx.fillStyle = arr.theme.cell;
+                        ctx.strokeStyle = arr.theme.border;
+                        ctx.lineWidth = 1;
+                    }
+                    
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Font size scaling
+                    ctx.fillStyle = isSliced ? '#fbbf24' : arr.theme.text;
+                    ctx.font = `${Math.floor(METRICS.cellSize * 0.4)}px Fira Code`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(arr.data[idx], x + METRICS.cellSize/2, y + METRICS.cellSize/2);
+                }
+            }
+        }
+
+        function drawHoverLayer() {
+            if (!app.hovered) return;
+
+            const h = app.hovered; 
+            const hoveredArr = app.arrays.find(a => a.id === h.arrayId);
+            if (!hoveredArr) return;
+
+            highlightCell(hoveredArr, h.r, h.c, THEME.highlight);
+
+            let tooltipText = `${hoveredArr.label}[${h.r}, ${h.c}] = ${hoveredArr.data[h.idx]}`;
+
+            if (app.mode === 'reshape') {
+                const arrSource = app.arrays.find(a => a.id === 'source');
+                const arrDest = app.arrays.find(a => a.id === 'target');
+                
+                if (arrSource && arrDest) {
+                    const flatIdx = h.r * hoveredArr.cols + h.c;
+                    const otherArr = hoveredArr === arrSource ? arrDest : arrSource;
+                    
+                    if (flatIdx < otherArr.rows * otherArr.cols) {
+                        const otherR = Math.floor(flatIdx / otherArr.cols);
+                        const otherC = flatIdx % otherArr.cols;
+                        highlightCell(otherArr, otherR, otherC, THEME.highlight);
+                        
+                        if (hoveredArr === arrSource) {
+                           tooltipText = `[${h.r}, ${h.c}] (idx ${flatIdx}) ➝ [${otherR}, ${otherC}]`;
+                        } else {
+                           tooltipText = `[${h.r}, ${h.c}] ➝ Source [${otherR}, ${otherC}] (idx ${flatIdx})`;
+                        }
+                    }
+                }
+            }
+
+            else if (app.mode === 'math' && hoveredArr.label === 'Result') {
+                const arrA = app.arrays[0];
+                const arrB = app.arrays[1];
+
+                highlightCell(arrA, h.r, h.c, THEME.highlight);
+
+                let rB = h.r, cB = h.c;
+                if (arrB.rows === 1) rB = 0; 
+                if (arrB.cols === 1) cB = 0; 
+                highlightCell(arrB, rB, cB, THEME.highlight);
+
+                const valA = arrA.data[h.r * arrA.cols + h.c];
+                const valB = arrB.data[rB * arrB.cols + cB];
+                const sym = getOpSymbol(app.settings.mathOp);
+                tooltipText = `${valA} ${sym} ${valB}`;
+            }
+
+            else if (app.mode === 'dot' && hoveredArr.label === 'C') {
+                const arrA = app.arrays[0];
+                const arrB = app.arrays[1];
+                for(let k=0; k<arrA.cols; k++) highlightCell(arrA, h.r, k, '#f472b6'); 
+                for(let k=0; k<arrB.rows; k++) highlightCell(arrB, k, h.c, '#f472b6');
+                tooltipText = `Row ${h.r} · Col ${h.c}`;
+            }
+
+            showTooltip(tooltipText);
+        }
+
+        function highlightCell(arr, r, c, color) {
+            const ctx = app.ctx;
+            const x = arr.x + c * (METRICS.cellSize + METRICS.cellGap);
+            const y = arr.y + r * (METRICS.cellSize + METRICS.cellGap);
+            
+            ctx.beginPath();
+            ctx.roundRect(x - 2, y - 2, METRICS.cellSize + 4, METRICS.cellSize + 4, 8);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = color;
+            ctx.stroke();
+        }
+
+        // --- INTERACTION ---
+
+        function handleMouseMove(e) {
+            const rect = app.canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            let found = null;
+            for (let arr of app.arrays) {
+                const cell = arr.getCell(mx, my);
+                if (cell) {
+                    found = { arrayId: arr.id, r: cell.r, c: cell.c, idx: cell.idx };
+                    break;
+                }
+            }
+            app.hovered = found;
+            
+            const tt = document.getElementById('tooltip');
+            if (found) {
+                tt.style.left = (e.clientX + 15) + 'px';
+                tt.style.top = (e.clientY + 15) + 'px';
+                // Tooltip content set in drawHoverLayer
+            } else {
+                tt.style.opacity = 0;
+            }
+            draw();
+        }
+
+        function showTooltip(text) {
+            const tt = document.getElementById('tooltip');
+            tt.innerHTML = text;
+            tt.style.opacity = 1;
+        }
+
+        // --- RESPONSIVE LOGIC ---
+        function resize() {
+            const parent = app.canvas.parentElement;
+            app.width = parent.clientWidth;
+            app.height = parent.clientHeight;
+            app.canvas.width = app.width;
+            app.canvas.height = app.height;
+
+            // Auto-Scaling Logic
+            if (app.width < 700) {
+                METRICS.cellSize = 30;
+                METRICS.spacing = 140;
+            } else if (app.width < 1000) {
+                METRICS.cellSize = 40;
+                METRICS.spacing = 180;
+            } else {
+                METRICS.cellSize = 50;
+                METRICS.spacing = 220;
+            }
+
+            // Update array dimensions based on new metrics
+            app.arrays.forEach(arr => arr.updateMetrics());
+
+            layoutArrays();
+            draw();
+        }
+
+        function getOpSymbol(op) {
+            if(op==='add') return '+';
+            if(op==='sub') return '-';
+            if(op==='mul') return '*';
+            if(op==='div') return '/';
+            return '?';
+        }
+
+        // --- UI BUILDER ---
+
+        function buildControls() {
+            const container = document.getElementById('controlsArea');
+            container.innerHTML = ''; 
+
+            const createSlider = (label, id, min, max, val, callback) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="flex justify-between text-xs text-slate-400 mb-1">
+                        <span>${label}</span>
+                        <span id="${id}_disp" class="text-blue-400 font-mono">${val}</span>
+                    </div>
+                    <input type="range" min="${min}" max="${max}" value="${val}" class="w-full"
+                        oninput="document.getElementById('${id}_disp').innerText = this.value; app.settings['${id}'] = parseInt(this.value); ${callback}">
+                `;
+                return div;
+            };
+
+            // Global Rows/Cols for A
+            if (app.mode !== 'dot') {
+                container.appendChild(createSlider('Rows', 'rows', 1, 6, app.settings.rows, 'generateScene()'));
+                container.appendChild(createSlider('Columns', 'cols', 1, 6, app.settings.cols, 'generateScene()'));
+            }
+
+            // BASIC MODE
+            if (app.mode === 'basic') {
+                container.innerHTML += `<div class="h-px bg-slate-700 my-4"></div><label class="text-xs font-bold text-slate-500 uppercase">Slice Selection</label>`;
+                
+                const createSliceControls = (label, startKey, endKey, max) => {
+                    const wrap = document.createElement('div');
+                    wrap.className = "mt-4 p-3 bg-slate-900/50 rounded border border-slate-700";
+                    wrap.innerHTML = `<div class="text-xs text-slate-300 font-bold mb-2">${label} [ <span id="${startKey}_v">${app.settings.slice[startKey]}</span> : <span id="${endKey}_v">${app.settings.slice[endKey]}</span> ]</div>`;
+                    
+                    const r1 = document.createElement('div');
+                    r1.className = "mb-2";
+                    r1.innerHTML = `<div class="flex justify-between text-[10px] text-slate-500"><span>Start</span></div>`;
+                    const i1 = document.createElement('input');
+                    i1.type = "range"; i1.min=0; i1.max=max; i1.value=app.settings.slice[startKey];
+                    i1.oninput = function() {
+                        let v = parseInt(this.value);
+                        if (v > app.settings.slice[endKey]) {
+                            app.settings.slice[endKey] = v;
+                            i2.value = v;
+                            document.getElementById(endKey+'_v').innerText = v;
+                        }
+                        app.settings.slice[startKey] = v;
+                        document.getElementById(startKey+'_v').innerText = v;
+                        generateScene();
+                    };
+                    r1.appendChild(i1);
+
+                    const r2 = document.createElement('div');
+                    r2.innerHTML = `<div class="flex justify-between text-[10px] text-slate-500"><span>Stop</span></div>`;
+                    const i2 = document.createElement('input');
+                    i2.type = "range"; i2.min=0; i2.max=max; i2.value=app.settings.slice[endKey];
+                    i2.oninput = function() {
+                        let v = parseInt(this.value);
+                        if (v < app.settings.slice[startKey]) {
+                            app.settings.slice[startKey] = v;
+                            i1.value = v;
+                            document.getElementById(startKey+'_v').innerText = v;
+                        }
+                        app.settings.slice[endKey] = v;
+                        document.getElementById(endKey+'_v').innerText = v;
+                        generateScene();
+                    };
+                    r2.appendChild(i2);
+
+                    wrap.appendChild(r1);
+                    wrap.appendChild(r2);
+                    return wrap;
+                };
+
+                container.appendChild(createSliceControls('Rows (Axis 0)', 'rStart', 'rEnd', app.settings.rows));
+                container.appendChild(createSliceControls('Cols (Axis 1)', 'cStart', 'cEnd', app.settings.cols));
+            }
+
+            // RESHAPE (No Transpose)
+            else if (app.mode === 'reshape') {
+                container.innerHTML += `<div class="h-px bg-slate-700 my-4"></div>`;
+                container.innerHTML += `<label class="text-xs font-bold text-slate-500 uppercase">Target Shape</label>`;
+                
+                const rDiv = document.createElement('div');
+                rDiv.className = "mt-2";
+                rDiv.innerHTML = `<div class="text-xs text-slate-400 mb-1">New Rows: <span id="nr_v" class="text-white">${app.settings.reshapeRows}</span></div>`;
+                const rIn = document.createElement('input');
+                rIn.type="range"; rIn.min=1; rIn.max=20; rIn.value=app.settings.reshapeRows;
+                rIn.oninput = function() {
+                    app.settings.reshapeRows = parseInt(this.value);
+                    document.getElementById('nr_v').innerText = this.value;
+                    generateScene();
+                };
+                rDiv.appendChild(rIn);
+                container.appendChild(rDiv);
+
+                const cDiv = document.createElement('div');
+                cDiv.className = "mt-2";
+                cDiv.innerHTML = `<div class="text-xs text-slate-400 mb-1">New Cols: <span id="nc_v" class="text-white">${app.settings.reshapeCols}</span></div>`;
+                const cIn = document.createElement('input');
+                cIn.type="range"; cIn.min=1; cIn.max=20; cIn.value=app.settings.reshapeCols;
+                cIn.oninput = function() {
+                    app.settings.reshapeCols = parseInt(this.value);
+                    document.getElementById('nc_v').innerText = this.value;
+                    generateScene();
+                };
+                cDiv.appendChild(cIn);
+                container.appendChild(cDiv);
+
+                const flatBtn = document.createElement('button');
+                flatBtn.innerText = "Flatten (Column Vector)";
+                flatBtn.className = "mt-4 w-full bg-slate-700 hover:bg-slate-600 text-xs py-1 rounded transition";
+                flatBtn.onclick = () => {
+                    const total = app.settings.rows * app.settings.cols;
+                    app.settings.reshapeRows = total; 
+                    app.settings.reshapeCols = 1;     
+                    buildControls();
+                    generateScene();
+                };
+                container.appendChild(flatBtn);
+            }
+
+            // MATH MODE
+            else if (app.mode === 'math') {
+                container.innerHTML += `<div class="h-px bg-slate-700 my-4"></div>`;
+                
+                const ops = document.createElement('div');
+                // Added flex-wrap for responsiveness
+                ops.className = "flex flex-wrap bg-slate-900 rounded p-1 gap-1 mb-4";
+                ['add','sub','mul','div'].forEach(op => {
+                    const btn = document.createElement('button');
+                    // Min width added for touch targets
+                    btn.className = `flex-1 py-1 px-2 text-xs rounded min-w-[30px] ${app.settings.mathOp === op ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`;
+                    btn.innerText = getOpSymbol(op);
+                    btn.onclick = () => { app.settings.mathOp = op; buildControls(); generateScene(); };
+                    ops.appendChild(btn);
+                });
+                container.appendChild(ops);
+
+                if (app.settings.mathOp === 'mul') {
+                     container.innerHTML += `<p class="text-[10px] text-slate-500 mb-4 bg-slate-900 p-2 rounded border border-slate-700">Note: "*" is Element-wise. Use Dot Product mode for Matrix Multiplication.</p>`;
+                }
+
+                const typeLabel = document.createElement('label');
+                typeLabel.className = "text-xs text-slate-400 block mb-2";
+                typeLabel.innerText = "Operand B Shape (Broadcasting)";
+                container.appendChild(typeLabel);
+
+                const sel = document.createElement('select');
+                sel.className = "w-full bg-slate-900 text-white text-xs border border-slate-600 rounded p-2 outline-none mb-4";
+                sel.innerHTML = `
+                    <option value="array" ${app.settings.operandType === 'array' ? 'selected' : ''}>Array (Same Shape)</option>
+                    <option value="scalar" ${app.settings.operandType === 'scalar' ? 'selected' : ''}>Scalar (Single Value)</option>
+                    <option value="row" ${app.settings.operandType === 'row' ? 'selected' : ''}>Row Vector (1, n)</option>
+                    <option value="col" ${app.settings.operandType === 'col' ? 'selected' : ''}>Col Vector (n, 1)</option>
+                `;
+                sel.onchange = (e) => { app.settings.operandType = e.target.value; buildControls(); generateScene(); };
+                container.appendChild(sel);
+
+                if (app.settings.operandType === 'scalar') {
+                    container.appendChild(createSlider('Scalar Value', 'scalarVal', 1, 10, app.settings.scalarVal, 'generateScene()'));
+                }
+            }
+
+            // AGGREGATION
+            else if (app.mode === 'aggregation') {
+                container.innerHTML += `<div class="h-px bg-slate-700 my-4"></div>`;
+                const typeGroup = document.createElement('div');
+                typeGroup.className = "flex gap-2 mb-4";
+                ['sum', 'max'].forEach(type => {
+                    const btn = document.createElement('button');
+                    btn.innerText = type.toUpperCase();
+                    btn.className = "flex-1 bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-xs text-white transition";
+                    btn.onclick = () => { app.settings.aggType = type; generateScene(); };
+                    typeGroup.appendChild(btn);
+                });
+                container.appendChild(typeGroup);
+
+                const axisDiv = document.createElement('div');
+                axisDiv.className = "space-y-2";
+                axisDiv.innerHTML = `<label class="text-xs text-slate-400">Axis</label>`;
+                const sel = document.createElement('select');
+                sel.className = "w-full bg-slate-900 border border-slate-700 text-white text-sm p-2 rounded";
+                sel.innerHTML = `
+                    <option value="-1">None (Global)</option>
+                    <option value="0">Axis 0 (Columns)</option>
+                    <option value="1">Axis 1 (Rows)</option>
+                `;
+                sel.onchange = (e) => { app.settings.aggAxis = parseInt(e.target.value); generateScene(); };
+                axisDiv.appendChild(sel);
+                container.appendChild(axisDiv);
+            }
+
+            // DOT PRODUCT
+            else if (app.mode === 'dot') {
+                container.appendChild(document.createElement('hr')).className = "border-slate-700 my-4";
+                container.appendChild(createSlider('M (Rows of A)', 'rows', 1, 5, 3, 'generateScene()'));
+                container.appendChild(createSlider('K (Common Dim)', 'commonK', 1, 5, 3, 'generateScene()'));
+                container.appendChild(createSlider('N (Cols of B)', 'colsB', 1, 5, 2, 'generateScene()'));
+            }
+
+            // Randomize
+            const regen = document.createElement('button');
+            regen.innerText = "🎲 Randomize Data";
+            regen.className = "w-full mt-8 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 rounded transition border border-slate-600";
+            regen.onclick = () => generateScene(true);
+            container.appendChild(regen);
+        }
+
+        function updatePythonDisplay(text) {
+            const el = document.getElementById('codeDisplay');
+            el.innerText = text;
+        }
+
+        function updateShapeInfo(text) {
+            document.getElementById('shapeInfo').innerText = text;
+        }
+
+        // --- BOOTSTRAP ---
+        window.addEventListener('resize', resize);
+        app.canvas.addEventListener('mousemove', handleMouseMove);
+        app.canvas.addEventListener('mouseleave', () => { app.hovered = null; draw(); });
+        
+        resize();
+        changeMode();
+
+    </script>
+</body>
+</html>
