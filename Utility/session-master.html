@@ -15,15 +15,43 @@
 
         .timer-nums { font-variant-numeric: tabular-nums; }
         
-        .draggable-item { cursor: grab; transition: transform 0.1s, box-shadow 0.1s; }
-        .draggable-item:active { cursor: grabbing; }
+        /* Drag Handle - Distinct hit area */
+        .drag-handle {
+            cursor: grab;
+            touch-action: none; /* Prevents scroll only on handle */
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            color: #94a3b8;
+        }
+        .drag-handle:hover { color: #64748b; background-color: #f1f5f9; }
+        .drag-handle:active { cursor: grabbing; color: #3b82f6; }
+
+        .draggable-item { 
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            position: relative; 
+        }
         .draggable-item.dragging { 
             opacity: 0.9; 
             background: #f0f9ff; 
             border: 2px dashed #3b82f6; 
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            position: relative;
             z-index: 10;
+        }
+
+        /* Keyboard Reorder Buttons (screen reader / keyboard focus friendly) */
+        .reorder-btn {
+            opacity: 0;
+            width: 0;
+            padding: 0;
+            overflow: hidden;
+            transition: opacity 0.2s, width 0.2s;
+        }
+        .group:hover .reorder-btn,
+        .reorder-btn:focus {
+            opacity: 1;
+            width: auto;
+            padding: 0.25rem;
+            overflow: visible;
         }
 
         @keyframes slide-in-down {
@@ -36,18 +64,30 @@
         }
         .toast-enter { animation: slide-in-down 0.5s ease-out forwards; }
         .toast-exit { animation: fade-out 0.5s ease-out forwards; }
+
+        .modal-enter { opacity: 1 !important; pointer-events: auto !important; }
+        .modal-content-enter { transform: scale(1) !important; }
+        
+        /* Accessibility: Sr-only class */
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 h-screen flex flex-col items-center justify-center p-4 relative">
+
+    <!-- ARIA Live Region for Announcements -->
+    <div id="a11y-announcer" class="sr-only" aria-live="assertive"></div>
 
     <div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none hidden">
         <div class="bg-slate-800 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 pointer-events-auto border border-slate-600">
             <div class="text-2xl">⚠️</div>
             <div>
-                <h4 class="font-bold text-sm uppercase tracking-wider text-amber-400">Halfway Mark</h4>
-                <p id="toast-message" class="text-sm">You have 15 minutes remaining.</p>
+                <h4 class="font-bold text-sm uppercase tracking-wider text-amber-400">Notice</h4>
+                <p id="toast-message" class="text-sm">Notification</p>
             </div>
-            <button onclick="hideToast()" class="ml-4 text-slate-400 hover:text-white">✕</button>
+            <button onclick="hideToast()" class="ml-4 text-slate-400 hover:text-white" aria-label="Close notification" type="button">✕</button>
         </div>
     </div>
 
@@ -59,11 +99,12 @@
             <div>
                 <h1 id="header-title" class="text-xl font-bold">Session Master</h1>
                 <p id="header-subtitle" class="text-slate-400 text-sm">Classroom & Workshop Timer</p>
-                <a href="https://partham16.github.io/" target="_blank" class="text-xs text-slate-500 hover:text-blue-400 transition-colors mt-0.5 block">by Partha Mandal</a>
+                <!-- SECURITY FIX: Added rel="noopener noreferrer" -->
+                <a href="https://partham16.github.io/" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-500 hover:text-blue-400 transition-colors mt-0.5 block">by Partha Mandal</a>
             </div>
             <div class="text-right">
                 <div id="total-time-display" class="font-mono text-emerald-400 font-bold text-lg">0h 0m</div>
-                <button onclick="clearData()" class="text-xs text-slate-500 hover:text-red-400 underline mt-1" title="Deletes all data and restores default">Reset</button>
+                <button onclick="confirmReset()" class="text-xs text-slate-500 hover:text-red-400 underline mt-1" title="Deletes all data and restores default" type="button">Reset</button>
             </div>
         </div>
 
@@ -83,7 +124,7 @@
                     <h2 id="waiting-session-name" class="text-2xl font-bold text-slate-800 mb-2"></h2>
                     <div id="countdown-display" class="text-4xl font-mono font-bold text-blue-600 timer-nums mb-1">--:--:--</div>
                     <p id="target-time-display" class="text-slate-400 text-xs"></p>
-                    <button onclick="cancelSchedule()" class="text-red-500 hover:text-red-700 text-xs font-bold mt-3 underline">Cancel Schedule</button>
+                    <button onclick="cancelSchedule()" class="text-red-500 hover:text-red-700 text-xs font-bold mt-3 underline" type="button">Cancel Schedule</button>
                 </div>
             </div>
 
@@ -92,7 +133,7 @@
                 <!-- Top Row: Name and Settings -->
                 <div class="px-6 pt-6 pb-4 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                     <div class="flex-1 w-full">
-                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Session Name</label>
+                        <label for="session-name-input" class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Session Name</label>
                         <input type="text" id="session-name-input" placeholder="e.g. Python Workshop - Week 1" oninput="saveData()"
                             class="w-full text-xl font-bold bg-transparent border-b-2 border-slate-200 focus:border-blue-500 focus:outline-none py-1 transition text-slate-800 placeholder-slate-300">
                     </div>
@@ -100,7 +141,7 @@
                     <!-- Sound Settings Compact -->
                     <div class="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100 text-sm whitespace-nowrap">
                         <div class="flex items-center gap-1">
-                            <span class="text-slate-500 font-semibold text-xs uppercase">Sound</span>
+                            <label for="sound-select" class="text-slate-500 font-semibold text-xs uppercase">Sound</label>
                             <select id="sound-select" onchange="onSoundTypeChange()" class="bg-white border border-slate-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-slate-700">
                                 <option value="chime">✨ Chime</option>
                                 <option value="digital">🤖 Digital</option>
@@ -108,31 +149,31 @@
                             </select>
                         </div>
                         <div class="flex items-center gap-1">
-                            <span class="text-slate-500 font-semibold text-xs uppercase">Vol</span>
+                            <label for="volume-slider" class="text-slate-500 font-semibold text-xs uppercase">Vol</label>
                             <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5" onchange="updateSoundSettings()" class="w-16 accent-blue-600 cursor-pointer">
                         </div>
-                        <button onclick="previewSound()" class="text-blue-600 hover:text-blue-800 font-bold text-xs uppercase tracking-wide px-2 py-1 rounded hover:bg-blue-50 transition">Test</button>
+                        <button onclick="previewSound()" class="text-blue-600 hover:text-blue-800 font-bold text-xs uppercase tracking-wide px-2 py-1 rounded hover:bg-blue-50 transition" type="button">Test</button>
                     </div>
                 </div>
 
                 <!-- Add Section Bar -->
                 <div class="px-6 py-4 border-b border-t border-slate-100 bg-slate-50/50 flex flex-col md:flex-row gap-2">
-                    <input type="text" id="input-title" placeholder="New Activity Name..." 
+                    <input type="text" id="input-title" placeholder="New Activity Name..." aria-label="Activity Name"
                         class="flex-[3] px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
                     
                     <div class="flex gap-2 flex-1">
-                        <input type="number" id="input-time" placeholder="Min" min="1" 
+                        <input type="number" id="input-time" placeholder="Min" min="1" aria-label="Duration in minutes"
                             class="w-20 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center shadow-sm">
                         
-                        <select id="input-type" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
+                        <select id="input-type" aria-label="Activity Type" class="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm">
                             <option value="regular">📚 Regular</option>
                             <option value="break">☕ Break</option>
                         </select>
                     </div>
 
                     <div class="flex gap-2 shrink-0">
-                        <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden px-4 bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold rounded-lg transition shadow-sm">✕</button>
-                        <button id="btn-add-update" onclick="saveItem()" class="px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition shadow-sm whitespace-nowrap">
+                        <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden px-4 bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold rounded-lg transition shadow-sm" type="button">✕</button>
+                        <button id="btn-add-update" onclick="saveItem()" class="px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition shadow-sm whitespace-nowrap" type="button">
                             + Add
                         </button>
                     </div>
@@ -141,7 +182,7 @@
 
             <!-- AGENDA LIST -->
             <div class="flex-1 overflow-y-auto scroller p-4 bg-white relative">
-                <ul id="agenda-list" class="space-y-2 pb-10"></ul>
+                <ul id="agenda-list" class="space-y-2 pb-10" role="list"></ul>
                 <div id="empty-state" class="text-center text-slate-400 py-12 hidden">
                     <div class="text-4xl mb-2">📝</div>
                     <p>No items yet.</p>
@@ -153,16 +194,16 @@
             <div id="start-controls" class="p-4 border-t border-slate-100 bg-slate-50 shrink-0 flex flex-col md:flex-row gap-3 items-center">
                 <div class="flex-1 w-full md:w-auto bg-white p-1.5 pl-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between text-sm text-slate-500 relative group">
                     <label for="start-time-picker" class="font-medium mr-2 whitespace-nowrap">Schedule Start:</label>
-                    <!-- Clear Schedule Button -->
-                    <button id="clear-schedule-btn" onclick="clearScheduleInput()" class="hidden absolute right-2 text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-slate-100" title="Clear Date">
+                    <input type="datetime-local" id="start-time-picker" oninput="checkScheduleInput()" class="border-none bg-transparent focus:ring-0 text-slate-700 font-mono text-sm outline-none w-full pr-1">
+                    
+                    <button id="clear-schedule-btn" onclick="clearScheduleInput()" class="hidden absolute right-6 text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-slate-100 transition z-10" title="Clear Date" aria-label="Clear Scheduled Time" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                         </svg>
                     </button>
-                    <input type="datetime-local" id="start-time-picker" oninput="checkScheduleInput()" class="border-none bg-transparent focus:ring-0 text-slate-700 font-mono text-sm outline-none w-full pr-8">
                 </div>
 
-                <button onclick="handleStartAction()" class="w-full md:w-auto px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-2.5 rounded-xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-2">
+                <button onclick="handleStartAction()" class="w-full md:w-52 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-2.5 rounded-xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-2 shrink-0" type="button">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span id="start-btn-text">Start Session</span>
                 </button>
@@ -172,7 +213,7 @@
         <!-- VIEW 2: RUNNING TIMER -->
         <div id="runner-view" class="hidden flex-col h-full">
             <div id="timer-bg" class="flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-500 bg-white relative">
-                <button onclick="resetSection()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition" title="Restart Section">
+                <button onclick="resetSection()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition" title="Restart Section" aria-label="Restart Current Section" type="button">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
 
@@ -181,11 +222,12 @@
                 <div id="adjustment-display" class="h-6 text-sm font-semibold text-slate-400 mb-2">Allocated: <span id="allocated-display">0m</span> <span id="diff-display"></span></div>
                 
                 <div class="relative flex items-center gap-6">
-                     <button onclick="adjustTime(-60)" class="text-slate-300 hover:text-red-500 transition p-3 hover:bg-slate-100 rounded-full group" title="-1 Minute">
+                     <button onclick="adjustTime(-60)" class="text-slate-300 hover:text-red-500 transition p-3 hover:bg-slate-100 rounded-full group" title="-1 Minute" aria-label="Remove 1 minute" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 group-active:scale-90 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" /></svg>
                     </button>
-                    <div id="timer-display" class="text-8xl md:text-[10rem] font-black text-slate-900 timer-nums tracking-tight my-2 cursor-pointer select-none" onclick="togglePause()" title="Click to Pause/Resume">00:00</div>
-                    <button onclick="adjustTime(60)" class="text-slate-300 hover:text-emerald-500 transition p-3 hover:bg-slate-100 rounded-full group" title="+1 Minute">
+                    <!-- Timer with ARIA live region -->
+                    <div id="timer-display" class="text-8xl md:text-[10rem] font-black text-slate-900 timer-nums tracking-tight my-2 cursor-pointer select-none" onclick="togglePause()" title="Click to Pause/Resume" aria-live="polite" role="timer" aria-atomic="true">00:00</div>
+                    <button onclick="adjustTime(60)" class="text-slate-300 hover:text-emerald-500 transition p-3 hover:bg-slate-100 rounded-full group" title="+1 Minute" aria-label="Add 1 minute" type="button">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 group-active:scale-90 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                     </button>
                 </div>
@@ -198,12 +240,12 @@
 
             <div class="bg-slate-50 border-t border-slate-200 p-6">
                 <div class="w-full bg-slate-200 rounded-full h-3 mb-6 overflow-hidden">
-                    <div id="progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                    <div id="progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-linear" style="width: 0%"></div>
                 </div>
                 <div class="flex justify-center gap-4">
-                    <button onclick="stopSession()" class="px-6 py-3 rounded-lg text-slate-600 hover:bg-slate-200 font-semibold transition">End</button>
-                    <button id="btn-pause" onclick="togglePause()" class="w-32 px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2"><span>⏸</span> Pause</button>
-                    <button onclick="skipSection()" class="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transition flex items-center gap-2">Next <span>⏭</span></button>
+                    <button onclick="stopSession()" class="px-6 py-3 rounded-lg text-slate-600 hover:bg-slate-200 font-semibold transition" aria-label="End Session" type="button">End</button>
+                    <button id="btn-pause" onclick="togglePause()" class="w-32 px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2" aria-label="Pause Session" type="button"><span>⏸</span> Pause</button>
+                    <button onclick="skipSection()" class="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md transition flex items-center gap-2" aria-label="Next Section" type="button">Next <span>⏭</span></button>
                 </div>
             </div>
         </div>
@@ -218,22 +260,51 @@
                 <div id="summary-list" class="space-y-3"></div>
             </div>
             <div class="p-6 border-t border-slate-200 bg-white shrink-0">
-                <button onclick="restartApp()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg text-lg shadow-md transition">Start New Session</button>
+                <button onclick="restartApp()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-lg text-lg shadow-md transition" type="button">Start New Session</button>
             </div>
         </div>
 
     </div>
 
-    <audio id="chime" src=""></audio>
+    <!-- Custom Modal -->
+    <div id="custom-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-slate-900/50 backdrop-blur-sm opacity-0 transition-opacity duration-200 pointer-events-none">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 transform scale-95 transition-transform duration-200" id="modal-content">
+            <h3 id="modal-title" class="text-lg font-bold text-slate-800 mb-2"></h3>
+            <p id="modal-message" class="text-slate-600 mb-6 text-sm leading-relaxed"></p>
+            <div class="flex justify-end gap-3" id="modal-actions">
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Element -->
+    <audio id="chime" src="" preload="auto"></audio>
 
     <script>
-        // --- DATA ---
+        // --- CONSTANTS & GLOBALS ---
+        const CONFIG = {
+            SCHEMA_VERSION: 1,
+            TICK_RATE_MS: 500,
+            SAVE_DEBOUNCE_MS: 500,
+            MAX_WORKER_RESTARTS: 3,
+            MAX_BACKOFF_MS: 30000
+        };
+
+        window.appMode = 'setup'; 
+        
+        // Debug object for user inspection
+        window.__appDiagnostics = {
+            state: 'init',
+            lastTick: 0,
+            timerWorkerStatus: 'null',
+            savedAt: null
+        };
+
         const defaultData = [
-            { id: 1, title: "Welcome & Intro", duration: 10, type: "regular", muted: false, adjustment: 0 },
-            { id: 2, title: "Key Concepts", duration: 20, type: "regular", muted: false, adjustment: 0 },
-            { id: 3, title: "Break", duration: 5, type: "break", muted: false, adjustment: 0 },
-            { id: 4, title: "Workshop Activity", duration: 45, type: "regular", muted: false, adjustment: 0 },
-            { id: 5, title: "Q&A", duration: 10, type: "regular", muted: false, adjustment: 0 }
+            { id: 'def-1', title: "Welcome & Intro", duration: 10, type: "regular", muted: false, adjustment: 0 },
+            { id: 'def-2', title: "Key Concepts", duration: 20, type: "regular", muted: false, adjustment: 0 },
+            { id: 'def-3', title: "Break", duration: 5, type: "break", muted: false, adjustment: 0 },
+            { id: 'def-4', title: "Workshop Activity", duration: 45, type: "regular", muted: false, adjustment: 0 },
+            { id: 'def-5', title: "Q&A", duration: 10, type: "regular", muted: false, adjustment: 0 }
         ];
 
         const soundAssets = {
@@ -247,90 +318,406 @@
         let agenda = [];
         let currentIndex = 0;
         let timeLeft = 0;
-        let timerInterval = null;
-        let countdownInterval = null;
         let isPaused = false;
         let totalDurationSec = 0;
         let editingIndex = null;
         let toastTimeout = null;
         let sessionName = "Session Master";
-        let dragSrcIndex = null;
         let soundSettings = { id: 'chime', volume: 0.5 };
         let soundTimeout = null; 
+        let halfwayAnnounced = false; // Flag to prevent duplicate announcements
+        
+        let targetEndTime = null;
+        let runningState = { active: false, paused: false, savedTime: null };
+        let wakeLock = null; 
+        
+        // --- HELPER FUNCTIONS ---
+        
+        function generateId() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+            }
+            return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function calculateProgress(elapsedSeconds, totalSeconds) {
+            if (totalSeconds <= 0) return 0;
+            const pct = (elapsedSeconds / totalSeconds) * 100;
+            return Math.min(100, Math.max(0, pct));
+        }
+
+        // Safe DOM Creator (Updated to handle SVGs correctly)
+        function el(tag, attrs = {}, children = []) {
+            // Detect if we need the SVG namespace
+            const isSvg = ['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon'].includes(tag);
+            
+            const node = isSvg 
+                ? document.createElementNS("http://www.w3.org/2000/svg", tag)
+                : document.createElement(tag);
+
+            for (const [key, value] of Object.entries(attrs)) {
+                if (key === 'className') {
+                    // setAttribute works for both HTML (class) and SVG (class)
+                    // whereas .className is read-only on SVG elements in some contexts
+                    node.setAttribute('class', value);
+                }
+                else if (key.startsWith('on') && typeof value === 'function') {
+                    node.addEventListener(key.substring(2).toLowerCase(), value);
+                }
+                else {
+                    node.setAttribute(key, value);
+                }
+            }
+            children.forEach(child => {
+                if (typeof child === 'string' || typeof child === 'number') {
+                    node.appendChild(document.createTextNode(child));
+                } else if (child instanceof Node) {
+                    node.appendChild(child);
+                }
+            });
+            return node;
+        }
+
+        function announce(text) {
+            const announcer = document.getElementById('a11y-announcer');
+            announcer.textContent = '';
+            setTimeout(() => { announcer.textContent = text; }, 50);
+        }
+
+        // --- WORKER MANAGEMENT ---
+        const workerCode = `
+            let intervalId = null;
+            self.onmessage = function(e) {
+                if (e.data === 'start') {
+                    if (intervalId) clearInterval(intervalId);
+                    intervalId = setInterval(() => postMessage('tick'), ${CONFIG.TICK_RATE_MS}); 
+                } else if (e.data === 'stop') {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+            };
+        `;
+        
+        let timerWorker = null;
+        let fallbackIntervalId = null;
+        let workerRestartAttempts = 0;
+        const MAX_WORKER_RESTARTS = 3;
+
+        function startWorker() {
+            // FIX: Explicit reset of attempts on successful start initiation
+            workerRestartAttempts = 0;
+
+            // Guard: If worker exists and is running, just reuse it
+            if (timerWorker) {
+                try {
+                    timerWorker.postMessage('start');
+                    return;
+                } catch(e) {
+                    console.error("Worker exists but postMessage failed", e);
+                    // Fall through to recreation if postMessage fails (e.g. terminated externally)
+                }
+            }
+
+            try {
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                timerWorker = new Worker(blobUrl);
+                URL.revokeObjectURL(blobUrl);
+                
+                timerWorker.onmessage = function(e) {
+                    if (e.data === 'tick') {
+                        // Success - running normally
+                        workerRestartAttempts = 0; // FIX: Reset on success
+                        window.__appDiagnostics.lastTick = Date.now();
+                        tick();
+                    }
+                };
+                
+                timerWorker.onerror = function(e) {
+                    console.error('Timer worker crashed:', e);
+                    window.__appDiagnostics.timerWorkerStatus = 'crashed';
+                    
+                    try { timerWorker.terminate(); } catch(err){}
+                    timerWorker = null;
+
+                    workerRestartAttempts++;
+                    
+                    // RELIABILITY FIX: Fallback to main thread if worker keeps dying
+                    if (workerRestartAttempts > CONFIG.MAX_WORKER_RESTARTS) {
+                        console.warn('Worker unstable, switching to fallback interval');
+                        startFallbackTimer();
+                        return;
+                    }
+
+                    // Exponential Backoff
+                    const delay = Math.min(100 * Math.pow(2, workerRestartAttempts), CONFIG.MAX_BACKOFF_MS);
+                    setTimeout(startWorker, delay);
+                };
+                
+                window.__appDiagnostics.timerWorkerStatus = 'running';
+                // FIX #1 Guard postMessage
+                if (timerWorker) {
+                    timerWorker.postMessage('start');
+                }
+
+            } catch(e) {
+                console.warn("Worker creation failed, using fallback interval", e);
+                if (timerWorker) {
+                    try { timerWorker.terminate(); } catch(err){}
+                    timerWorker = null;
+                }
+                startFallbackTimer();
+            }
+        }
+
+        function startFallbackTimer() {
+            // reset restart attempts when switching to fallback
+            workerRestartAttempts = 0;
+            if (fallbackIntervalId) clearInterval(fallbackIntervalId);
+            fallbackIntervalId = setInterval(() => {
+                 tick();
+            }, CONFIG.TICK_RATE_MS);
+            window.__appDiagnostics.timerWorkerStatus = 'fallback';
+        }
+
+        function stopWorker() {
+            if (timerWorker) {
+                try {
+                    timerWorker.postMessage('stop');
+                    timerWorker.terminate();
+                } catch(e){}
+                timerWorker = null;
+                window.__appDiagnostics.timerWorkerStatus = 'terminated';
+            }
+            if (fallbackIntervalId) {
+                clearInterval(fallbackIntervalId);
+                fallbackIntervalId = null;
+            }
+        }
+
+        window.addEventListener('beforeunload', stopWorker);
+
+        // --- WAKE LOCK API ---
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch (err) {
+                    // Suppress console error as it's common in iframes/background
+                    console.log('Wake Lock inactive:', err.message); 
+                }
+            }
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock !== null) {
+                try { await wakeLock.release(); } catch(e){}
+                wakeLock = null;
+            }
+        }
+
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                await requestWakeLock();
+            } else {
+                // Release explicitly when backgrounded to be good citizen
+                await releaseWakeLock();
+            }
+        });
 
         // --- LOAD/SAVE ---
         function loadData() {
             const saved = localStorage.getItem('sessionMaster_data_v2'); 
             if (saved) {
-                const parsed = JSON.parse(saved);
-                agenda = (parsed.agenda || []).map(item => ({...item, adjustment: item.adjustment || 0}));
-                sessionName = parsed.sessionName || "Session Master";
-                document.getElementById('session-name-input').value = parsed.sessionName || "";
-                if (parsed.soundSettings) {
-                    soundSettings = parsed.soundSettings;
-                    if(soundSettings.id === 'bell' || soundSettings.id === 'soft-bell') soundSettings.id = 'chime';
-                    document.getElementById('sound-select').value = soundSettings.id;
-                    document.getElementById('volume-slider').value = soundSettings.volume;
+                try {
+                    const parsed = JSON.parse(saved);
+
+                    if (!parsed.schemaVersion && Array.isArray(parsed.agenda)) {
+                        console.log("Migrating legacy data to v1");
+                        parsed.schemaVersion = CONFIG.SCHEMA_VERSION;
+                    }
+
+                    if (parsed.schemaVersion !== CONFIG.SCHEMA_VERSION) {
+                        // Best-effort: back up raw saved data before any destructive action
+                        try {
+                            localStorage.setItem('sessionMaster_data_v2_backup_' + Date.now(), saved);
+                            console.warn('Saved data schema mismatch — backup created.');
+                        } catch (e) {
+                            console.error('Failed to create backup of saved data', e);
+                        }
+                        // continue and attempt to use fields if present
+                    }
+
+                    if (parsed.agenda && Array.isArray(parsed.agenda)) {
+                        agenda = (parsed.agenda || []).map(item => ({...item, adjustment: item.adjustment || 0}));
+                        sessionName = parsed.sessionName || "Session Master";
+                        document.getElementById('session-name-input').value = parsed.sessionName || "";
+
+                        if (parsed.soundSettings) {
+                            soundSettings = parsed.soundSettings;
+                            if (soundSettings.id === 'bell') soundSettings.id = 'chime';
+                            document.getElementById('sound-select').value = soundSettings.id;
+                            document.getElementById('volume-slider').value = soundSettings.volume;
+                        }
+
+                        if (parsed.runningState && parsed.runningState.active) {
+                            restoreSession(parsed.runningState);
+                        }
+                    } else {
+                        throw new Error("Invalid structure");
+                    }
+                } catch (e) {
+                    console.warn("Data corrupted or incompatible, resetting to defaults.", e);
+                    try { localStorage.removeItem('sessionMaster_data_v2'); } catch(e){}
+                    agenda = [...defaultData];
+                    document.getElementById('session-name-input').value = "";
+                    showToast("App updated or data invalid. Session reset.");
                 }
             } else {
                 agenda = [...defaultData];
                 document.getElementById('session-name-input').value = "";
             }
-            if(sessionName) document.getElementById('header-title').innerText = sessionName || "Session Master";
+            if (sessionName) document.getElementById('header-title').innerText = sessionName || "Session Master";
         }
 
+        let saveTimeout;
         function saveData() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveDataImpl, CONFIG.SAVE_DEBOUNCE_MS);
+        }
+
+        function saveDataImpl() {
             const nameInput = document.getElementById('session-name-input').value.trim();
             sessionName = nameInput || "Session Master";
             if(sessionName) document.getElementById('header-title').innerText = sessionName;
-            localStorage.setItem('sessionMaster_data_v2', JSON.stringify({ agenda, sessionName, soundSettings }));
+            
+            const currentState = {
+                active: window.appMode === 'running',
+                paused: !!isPaused,
+                index: currentIndex,
+                target: typeof targetEndTime === 'number' ? Number(targetEndTime) : null,
+                savedTimeLeft: timeLeft
+            };
+
+            const payload = { 
+                schemaVersion: CONFIG.SCHEMA_VERSION,
+                agenda, 
+                sessionName, 
+                soundSettings, 
+                runningState: currentState,
+                lastSavedAt: Date.now()
+            };
+            
+            window.__appDiagnostics.savedAt = payload.lastSavedAt;
+            localStorage.setItem('sessionMaster_data_v2', JSON.stringify(payload));
+        }
+
+        function restoreSession(state) {
+            currentIndex = Math.max(0, Math.min((state.index || 0), agenda.length - 1));
+            totalDurationSec = agenda.reduce((acc, curr) => acc + (curr.duration * 60), 0);
+            
+            document.getElementById('setup-view').classList.add('hidden');
+            document.getElementById('runner-view').classList.remove('hidden');
+            document.getElementById('runner-view').classList.add('flex');
+            window.appMode = 'running';
+
+            const item = agenda[currentIndex];
+            if (!item) { stopSession(); return; }
+            
+            updateSectionUI(item);
+
+            const now = Date.now();
+            let resumeFromTarget = false;
+
+            if (state.target && typeof state.target === 'number') {
+                if (state.target > now) {
+                    targetEndTime = state.target;
+                    timeLeft = Math.ceil((targetEndTime - now) / 1000);
+                    resumeFromTarget = true;
+                } else {
+                    resumeFromTarget = false;
+                }
+            }
+
+            if (resumeFromTarget && !state.paused) {
+                isPaused = false;
+                startWorker();
+                requestWakeLock();
+                announce("Session Resumed");
+            } else {
+                isPaused = true;
+                timeLeft = state.savedTimeLeft || (item.duration * 60);
+                targetEndTime = null; 
+            }
+            
+            updateDisplay();
+            updatePauseButton();
         }
 
         function clearData() {
-            if(confirm("Factory Reset: This will delete all your session data and restore defaults. Continue?")) {
-                localStorage.removeItem('sessionMaster_data_v2');
-                location.reload();
-            }
+            localStorage.removeItem('sessionMaster_data_v2');
+            location.reload();
+        }
+        
+        function confirmReset() {
+            showConfirm("Factory Reset: This will delete all your session data and restore defaults. Continue?", () => {
+                clearData();
+            });
         }
 
-        // --- RENDER AGENDA ---
+        // --- RENDER AGENDA (USING SAFE DOM) ---
         function renderList() {
             const listEl = document.getElementById('agenda-list');
             const emptyEl = document.getElementById('empty-state');
-            listEl.innerHTML = '';
+            listEl.innerHTML = ''; 
             
             if (agenda.length === 0) { emptyEl.classList.remove('hidden'); } else { emptyEl.classList.add('hidden'); }
 
             let totalMins = 0;
             agenda.forEach((item, index) => {
                 totalMins += item.duration;
-                const li = document.createElement('li');
                 const isEditing = index === editingIndex;
                 const activeClass = isEditing ? 'ring-2 ring-blue-400 bg-blue-50' : 'bg-white';
                 const isMuted = item.muted === true;
+                const isBreak = item.type === 'break';
 
-                li.className = `draggable-item flex items-center justify-between p-3 border border-slate-200 rounded-lg shadow-sm group ${item.type === 'break' ? 'border-l-4 border-l-amber-400' : ''} ${activeClass}`;
-                li.setAttribute('draggable', 'true');
-                li.setAttribute('data-id', item.id);
-                
+                const dragIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5 pointer-events-none", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" }, [
+                    el('path', { "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-width": "2", d: "M4 8h16M4 16h16" })
+                ]);
+                const editIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5", viewBox: "0 0 20 20", fill: "currentColor" }, [
+                    el('path', { d: "M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" })
+                ]);
+                const trashIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5", viewBox: "0 0 20 20", fill: "currentColor" }, [
+                    el('path', { "fill-rule": "evenodd", d: "M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z", "clip-rule": "evenodd" })
+                ]);
+
+                const leftContent = el('div', { className: "flex items-center gap-3 overflow-hidden flex-1" }, [
+                    el('div', { className: "drag-handle text-slate-300 flex items-center justify-center", title: "Drag to reorder" }, [dragIcon]),
+                    el('div', { className: "bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded min-w-[3rem] text-center" }, [`${item.duration}m`]),
+                    el('div', { className: "truncate font-medium text-slate-700" }, [isBreak ? '☕ ' : '', item.title])
+                ]);
+
+                const buttons = el('div', { className: "flex gap-1 items-center shrink-0 group" }, [
+                    el('button', { className: "reorder-btn text-slate-400 hover:text-blue-600", 'aria-label': "Move Up", type:"button", onclick: () => moveItem(index, -1) }, ["↑"]),
+                    el('button', { className: "reorder-btn text-slate-400 hover:text-blue-600", 'aria-label': "Move Down", type:"button", onclick: () => moveItem(index, 1) }, ["↓"]),
+                    el('button', { className: "transition p-1 hover:bg-slate-100 rounded ml-1", title: isMuted ? "Unmute" : "Mute", 'aria-label': isMuted ? "Unmute Section" : "Mute Section", type:"button", onclick: () => toggleMute(index) }, [isMuted ? '🔕' : '🔔']),
+                    el('button', { className: "text-slate-300 hover:text-blue-500 transition p-1", title: "Edit", 'aria-label': "Edit Section", type:"button", onclick: () => editItem(index) }, [editIcon]),
+                    el('button', { className: "text-slate-300 hover:text-red-500 transition p-1", title: "Remove", 'aria-label': "Remove Section", type:"button", onclick: () => removeItem(index) }, [trashIcon])
+                ]);
+
+                const li = el('li', { 
+                    className: `draggable-item flex items-center justify-between p-3 border border-slate-200 rounded-lg shadow-sm group ${isBreak ? 'border-l-4 border-l-amber-400' : ''} ${activeClass}`,
+                    draggable: 'true',
+                    'data-id': item.id
+                }, [leftContent, buttons]);
+
                 li.addEventListener('dragstart', handleDragStart);
                 li.addEventListener('dragover', handleDragOver);
                 li.addEventListener('dragend', handleDragEnd);
+                li.addEventListener('touchstart', handleTouchStart, {passive: false});
+                li.addEventListener('touchmove', handleTouchMove, {passive: false});
+                li.addEventListener('touchend', handleTouchEnd);
 
-                li.innerHTML = `
-                    <div class="flex items-center gap-3 overflow-hidden flex-1 pointer-events-none">
-                        <div class="text-slate-300 cursor-grab">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                        </div>
-                        <div class="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded min-w-[3rem] text-center">${item.duration}m</div>
-                        <div class="truncate font-medium text-slate-700">${item.type === 'break' ? '☕ ' : ''}${item.title}</div>
-                    </div>
-                    <div class="flex gap-1 items-center shrink-0">
-                        <button onclick="toggleMute(${index})" class="transition p-1 hover:bg-slate-100 rounded" title="${isMuted ? "Unmute" : "Mute"}">${isMuted ? '🔕' : '🔔'}</button>
-                        <button onclick="editItem(${index})" class="text-slate-300 hover:text-blue-500 transition p-1" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg></button>
-                        <button onclick="removeItem(${index})" class="text-slate-300 hover:text-red-500 transition p-1" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></button>
-                    </div>
-                `;
                 listEl.appendChild(li);
             });
             const h = Math.floor(totalMins / 60);
@@ -338,92 +725,130 @@
             document.getElementById('total-time-display').innerText = `${h}h ${m}m`;
         }
 
-        // --- DRAG LOGIC ---
-        function handleDragStart(e) { this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
-        function handleDragOver(e) {
-            e.preventDefault();
-            const container = document.getElementById('agenda-list');
-            const afterElement = getDragAfterElement(container, e.clientY);
-            const draggable = document.querySelector('.dragging');
-            if (afterElement == null) { container.appendChild(draggable); } else { container.insertBefore(draggable, afterElement); }
-        }
-        function getDragAfterElement(container, y) {
-            const draggableElements = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
-            return draggableElements.reduce((closest, child) => {
-                const box = child.getBoundingClientRect();
-                const offset = y - box.top - box.height / 2;
-                if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } else { return closest; }
-            }, { offset: Number.NEGATIVE_INFINITY }).element;
-        }
-        function handleDragEnd(e) {
-            this.classList.remove('dragging');
-            const listEl = document.getElementById('agenda-list');
-            const newOrderIds = Array.from(listEl.children).map(li => Number(li.getAttribute('data-id')));
-            const newAgenda = [];
-            newOrderIds.forEach(id => { const item = agenda.find(i => i.id === id); if(item) newAgenda.push(item); });
-            if(newAgenda.length === agenda.length) { agenda = newAgenda; saveData(); renderList(); } 
-            else { console.error("Drag sync error"); renderList(); }
+        // --- ORDERING LOGIC ---
+        function moveItem(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= agenda.length) return;
+            const temp = agenda[index];
+            agenda[index] = agenda[newIndex];
+            agenda[newIndex] = temp;
+            saveData();
+            renderList();
         }
 
-        // --- AGENDA ACTIONS ---
+        // --- DRAG & DROP LOGIC ---
+        function handleDragStart(e) { 
+            // FIX: Enforce handle-only dragging on Desktop too for better text selection
+            if (!e.target.closest('.drag-handle')) {
+                // Do not prevent default here, let browser handle selection
+                return;
+            }
+            // If it IS a handle, start dragging
+            this.classList.add('dragging'); 
+            e.dataTransfer.effectAllowed = 'move'; 
+        }
+        function handleDragOver(e) { 
+            e.preventDefault(); 
+            const container = document.getElementById('agenda-list'); 
+            const after = getDragAfterElement(container, e.clientY); 
+            const draggable = document.querySelector('.dragging'); 
+            if (after == null) container.appendChild(draggable); 
+            else container.insertBefore(draggable, after); 
+        }
+        function handleDragEnd(e) { 
+            this.classList.remove('dragging'); 
+            saveNewOrder();
+        }
+
+        let touchDragItem = null;
+        let touchMoveThrottle = 0;
+        function handleTouchStart(e) {
+            if (!e.target.closest('.drag-handle')) return; 
+            touchDragItem = this;
+            this.classList.add('dragging');
+        }
+        function handleTouchMove(e) {
+            if (!touchDragItem) return;
+            e.preventDefault();
+            
+            // OPTIMIZATION: Throttle expensive layout recalculations
+            const now = Date.now();
+            if (now - touchMoveThrottle < 50) return; // 20fps cap for reordering
+            touchMoveThrottle = now;
+
+            const touch = e.touches[0];
+            const container = document.getElementById('agenda-list');
+            const after = getDragAfterElement(container, touch.clientY);
+            if (after == null) container.appendChild(touchDragItem); 
+            else container.insertBefore(touchDragItem, after); 
+        }
+        function handleTouchEnd(e) {
+            if (!touchDragItem) return;
+            touchDragItem.classList.remove('dragging');
+            touchDragItem = null;
+            saveNewOrder();
+        }
+
+        function getDragAfterElement(container, y) { 
+            const draggables = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
+            // FIX #4 Safer Loop Implementation
+            let closest = null;
+            let closestOffset = Number.NEGATIVE_INFINITY;
+
+            draggables.forEach(child => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closestOffset) {
+                    closestOffset = offset;
+                    closest = child;
+                }
+            });
+            
+            return closest;
+        }
+
+        function saveNewOrder() {
+            const ids = Array.from(document.getElementById('agenda-list').children).map(li => li.getAttribute('data-id')); 
+            const newA = []; 
+            ids.forEach(id => { 
+                const item = agenda.find(i => i.id === id); 
+                if(item) newA.push(item); 
+            }); 
+            if(newA.length === agenda.length) { 
+                agenda = newA; 
+                saveData(); 
+                renderList(); 
+            } else {
+                renderList(); 
+            }
+        }
+
         function saveItem() {
             const title = document.getElementById('input-title').value.trim();
             const duration = parseInt(document.getElementById('input-time').value);
             const type = document.getElementById('input-type').value;
             const finalTitle = (type === 'break' && !title) ? "Break" : title;
-
             if (finalTitle && duration > 0) {
-                const newItem = { id: Date.now(), title: finalTitle, duration, type, muted: false, adjustment: 0 };
-                if (editingIndex !== null) {
-                    const existing = agenda[editingIndex];
-                    agenda[editingIndex] = { ...existing, title: finalTitle, duration, type };
-                    cancelEdit();
-                } else {
-                    agenda.push(newItem);
-                    document.getElementById('input-title').value = '';
-                    document.getElementById('input-time').value = '';
-                    document.getElementById('input-title').focus();
-                }
+                const newItem = { id: generateId(), title: finalTitle, duration, type, muted: false, adjustment: 0 };
+                if (editingIndex !== null) { const ex = agenda[editingIndex]; agenda[editingIndex] = { ...ex, title: finalTitle, duration, type }; cancelEdit(); } 
+                else { agenda.push(newItem); document.getElementById('input-title').value = ''; document.getElementById('input-time').value = ''; document.getElementById('input-title').focus(); }
                 saveData(); renderList();
             }
         }
-
         function toggleMute(index) { agenda[index].muted = !agenda[index].muted; saveData(); renderList(); }
-        function editItem(index) {
-            editingIndex = index;
-            const item = agenda[index];
-            document.getElementById('input-title').value = item.title;
-            document.getElementById('input-time').value = item.duration;
-            document.getElementById('input-type').value = item.type;
-            const btn = document.getElementById('btn-add-update');
-            btn.innerHTML = 'Update';
-            btn.classList.replace('bg-blue-600', 'bg-amber-500');
-            btn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600');
-            document.getElementById('btn-cancel-edit').classList.remove('hidden');
-            renderList();
-        }
-        function cancelEdit() {
-            editingIndex = null;
-            document.getElementById('input-title').value = '';
-            document.getElementById('input-time').value = '';
-            const btn = document.getElementById('btn-add-update');
-            btn.innerHTML = '+ Add';
-            btn.classList.replace('bg-amber-500', 'bg-blue-600');
-            btn.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700');
-            document.getElementById('btn-cancel-edit').classList.add('hidden');
-            renderList();
-        }
-        function removeItem(index) {
-            if (index === editingIndex) cancelEdit();
-            agenda.splice(index, 1);
-            saveData(); renderList();
-        }
+        function editItem(index) { editingIndex = index; const item = agenda[index]; document.getElementById('input-title').value = item.title; document.getElementById('input-time').value = item.duration; document.getElementById('input-type').value = item.type; const btn = document.getElementById('btn-add-update'); btn.innerHTML = 'Update'; btn.classList.replace('bg-blue-600', 'bg-amber-500'); btn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600'); document.getElementById('btn-cancel-edit').classList.remove('hidden'); renderList(); }
+        function cancelEdit() { editingIndex = null; document.getElementById('input-title').value = ''; document.getElementById('input-time').value = ''; const btn = document.getElementById('btn-add-update'); btn.innerHTML = '+ Add'; btn.classList.replace('bg-amber-500', 'bg-blue-600'); btn.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700'); document.getElementById('btn-cancel-edit').classList.add('hidden'); renderList(); }
+        function removeItem(index) { if (index === editingIndex) cancelEdit(); agenda.splice(index, 1); saveData(); renderList(); }
 
         // --- TIMER & FLOW ---
-        function handleStartAction() {
-            if (agenda.length === 0) return alert("Please add at least one section.");
+        async function handleStartAction() {
+            if (agenda.length === 0) return showAlert("Please add at least one section.");
             if (editingIndex !== null) cancelEdit();
-            if ("Notification" in window) Notification.requestPermission();
+            
+            await ensureNotifications();
+            
+            // FIX: Unlock audio correctly
+            unlockAudio();
 
             const picker = document.getElementById('start-time-picker');
             if (picker.value) {
@@ -433,6 +858,33 @@
             } else { startSession(); }
         }
 
+        async function ensureNotifications() {
+            if (!("Notification" in window)) return false;
+            if (Notification.permission === "granted") return true;
+            if (Notification.permission !== "denied") {
+                const p = await Notification.requestPermission();
+                return p === "granted";
+            }
+            return false;
+        }
+        
+        // FIX: Audio Unlock function (Robust)
+        function unlockAudio() {
+            if (document.hidden) return; // Fix #6: Reduce noise
+            const audio = document.getElementById('chime');
+            if (!audio) return;
+            
+            // Ensure we have a valid source to unlock the context
+            if (!audio.src) {
+                audio.src = soundAssets[soundSettings.id];
+            }
+
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+            }).catch(e => console.log("Audio unlock failed (likely no user interaction)", e));
+        }
+
         function startScheduledCountdown(targetTime) {
             document.getElementById('waiting-header').classList.remove('hidden');
             document.getElementById('waiting-header').classList.add('flex');
@@ -440,16 +892,21 @@
             document.getElementById('start-controls').classList.add('hidden');
             document.getElementById('waiting-session-name').innerText = sessionName || "Session";
             document.getElementById('target-time-display').innerText = `Starts: ${new Date(targetTime).toLocaleString()}`;
-            updateCountdown(targetTime);
-            countdownInterval = setInterval(() => {
-                const dist = targetTime - Date.now();
-                if (dist <= 0) { clearInterval(countdownInterval); startSession(); } 
-                else { updateCountdown(targetTime); }
-            }, 1000);
+            
+            targetEndTime = targetTime; 
+            const dist = targetEndTime - Date.now();
+            updateCountdownUI(dist);
+            
+            startWorker();
+            window.appMode = 'countdown';
+            requestWakeLock();
+            announce("Session Scheduled");
         }
 
         function cancelSchedule() {
-            clearInterval(countdownInterval);
+            stopWorker();
+            releaseWakeLock();
+            window.appMode = 'setup';
             document.getElementById('waiting-header').classList.add('hidden');
             document.getElementById('waiting-header').classList.remove('flex');
             document.getElementById('edit-controls').classList.remove('hidden');
@@ -457,21 +914,32 @@
         }
 
         function startSession() {
+            window.appMode = 'running';
             document.getElementById('setup-view').classList.add('hidden');
             document.getElementById('runner-view').classList.remove('hidden');
             document.getElementById('runner-view').classList.add('flex');
+            document.getElementById('waiting-header').classList.add('hidden');
+            document.getElementById('waiting-header').classList.remove('flex');
+
             totalDurationSec = agenda.reduce((acc, curr) => acc + (curr.duration * 60), 0);
             currentIndex = 0;
             loadSection(currentIndex);
+            
             isPaused = false;
             updatePauseButton();
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(tick, 1000);
+            
+            startWorker();
+            requestWakeLock();
+            saveData();
+            announce("Session Started");
         }
 
         function stopSession() {
-            clearInterval(timerInterval);
+            stopWorker();
+            releaseWakeLock();
             stopSound();
+            window.appMode = 'setup';
+            
             document.getElementById('setup-view').classList.remove('hidden');
             document.getElementById('runner-view').classList.add('hidden');
             document.getElementById('runner-view').classList.remove('flex');
@@ -482,6 +950,14 @@
             document.getElementById('waiting-header').classList.remove('flex');
             document.getElementById('edit-controls').classList.remove('hidden');
             document.getElementById('start-controls').classList.remove('hidden');
+            
+            localStorage.setItem('sessionMaster_data_v2', JSON.stringify({ 
+                schemaVersion: CONFIG.SCHEMA_VERSION,
+                agenda, 
+                sessionName, 
+                soundSettings, 
+                runningState: { active: false } 
+            }));
             hideToast();
         }
 
@@ -490,20 +966,21 @@
             const item = agenda[index];
             agenda[index].adjustment = 0;
             timeLeft = item.duration * 60;
+            halfwayAnnounced = false; // Reset flag
+            if (!isPaused) { targetEndTime = Date.now() + (timeLeft * 1000); }
             updateSectionUI(item);
             updateDisplay();
+            saveData();
         }
 
         function updateSectionUI(item) {
             const titleEl = document.getElementById('timer-title');
             const bgEl = document.getElementById('timer-bg');
             const badgeEl = document.getElementById('current-badge');
-            
             titleEl.innerText = item.title;
             const nextItem = agenda[currentIndex + 1];
             document.getElementById('next-title-text').innerText = nextItem ? `${nextItem.duration}m - ${nextItem.title}` : "Finish";
             document.getElementById('allocated-display').innerText = `${item.duration}m`;
-
             if (item.type === 'break') {
                 bgEl.className = "flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-500 relative bg-amber-50";
                 badgeEl.innerText = "☕ Break Time";
@@ -518,51 +995,84 @@
         function adjustTime(seconds) {
             timeLeft += seconds;
             if (timeLeft < 0) timeLeft = 0;
+            if (!isPaused && targetEndTime) { targetEndTime += (seconds * 1000); }
             agenda[currentIndex].adjustment = (agenda[currentIndex].adjustment || 0) + seconds;
             updateDisplay();
+            saveData();
         }
 
         function resetSection() {
             const item = agenda[currentIndex];
             agenda[currentIndex].adjustment = 0;
             timeLeft = item.duration * 60;
+            halfwayAnnounced = false;
+            if (!isPaused) { targetEndTime = Date.now() + (timeLeft * 1000); }
             updateDisplay();
+            saveData();
             const display = document.getElementById('timer-display');
             display.classList.add('opacity-50');
             setTimeout(() => display.classList.remove('opacity-50'), 200);
         }
 
         function skipSection() {
-            if (timeLeft > 0) {
-                agenda[currentIndex].adjustment = (agenda[currentIndex].adjustment || 0) - timeLeft;
-            }
+            if (timeLeft > 0) { agenda[currentIndex].adjustment = (agenda[currentIndex].adjustment || 0) - timeLeft; }
             currentIndex++;
             loadSection(currentIndex);
         }
 
+        // TICK (Worker Driven)
+        let tickCounter = 0;
         function tick() {
-            if (isPaused) return;
+            if (window.appMode === 'countdown') {
+                const dist = targetEndTime - Date.now();
+                if (dist <= 0) { stopWorker(); startSession(); } else { updateCountdownUI(dist); }
+                return;
+            }
+            if (isPaused || window.appMode !== 'running') return;
+
+            const now = Date.now();
+            const diff = Math.ceil((targetEndTime - now) / 1000);
+            timeLeft = diff;
+
             const currentItem = agenda[currentIndex];
             const halfTime = Math.floor((currentItem.duration * 60) / 2);
-            if (timeLeft === halfTime && currentItem.duration >= 15 && !currentItem.muted) {
-                 showToast(`Halfway Mark! ${Math.floor(timeLeft/60)} minutes remaining.`);
+            
+            // Fuzzy Check for Halfway (Range 0-1s window)
+            if (!halfwayAnnounced && timeLeft <= halfTime && timeLeft > halfTime - 2 && currentItem.duration >= 1 && !currentItem.muted) {
+                 halfwayAnnounced = true;
+                 showToast(`Halfway Mark!`);
+                 playSound();
+                 announce(`Halfway mark for ${currentItem.title}`);
                  if (document.hidden) sendSystemNotification("Halfway Mark!", `You are halfway through ${currentItem.title}`);
             }
-            if (timeLeft > 0) {
-                timeLeft--;
-                updateDisplay();
-            } else {
-                if (!currentItem.muted) { playSound(); sendSystemNotification("Time's Up!", `${currentItem.title} has finished.`); }
-                skipSection();
+
+            if (timeLeft > 0) { 
+                // Optimize: don't save every tick, done via throttle below
+                requestAnimationFrame(updateDisplay);
+            } 
+            else { 
+                timeLeft = 0; 
+                requestAnimationFrame(updateDisplay);
+                if (!currentItem.muted) { 
+                    playSound(); 
+                    sendSystemNotification("Time's Up!", `${currentItem.title} has finished.`);
+                    announce(`${currentItem.title} has finished.`);
+                } 
+                skipSection(); 
             }
+            
+            // Throttle saves to every 5 seconds (10 ticks @ 0.5s each)
+            tickCounter++;
+            if(tickCounter % 10 === 0) saveData(); 
         }
 
         function updateDisplay() {
-            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-            const s = (timeLeft % 60).toString().padStart(2, '0');
+            const safeTime = Math.max(0, timeLeft);
+            const m = Math.floor(safeTime / 60).toString().padStart(2, '0');
+            const s = (safeTime % 60).toString().padStart(2, '0');
             document.getElementById('timer-display').innerText = `${m}:${s}`;
             document.title = `${m}:${s} - ${sessionName}`;
-
+            
             const adjSec = agenda[currentIndex].adjustment || 0;
             const diffEl = document.getElementById('diff-display');
             if (adjSec !== 0) {
@@ -575,22 +1085,41 @@
             let elapsedPrior = 0;
             for(let i=0; i<currentIndex; i++) elapsedPrior += agenda[i].duration * 60;
             const currentTotalStart = (agenda[currentIndex].duration * 60) + (agenda[currentIndex].adjustment || 0);
-            const currentElapsed = Math.max(0, currentTotalStart - timeLeft);
-            const percentage = Math.min(100, ((elapsedPrior + currentElapsed) / totalDurationSec) * 100);
+            const currentElapsed = Math.max(0, currentTotalStart - safeTime);
+            
+            const percentage = calculateProgress(elapsedPrior + currentElapsed, totalDurationSec);
             document.getElementById('progress-bar').style.width = `${percentage}%`;
         }
 
+        function updateCountdownUI(dist) {
+             const h = Math.floor((dist % (86400000)) / 3600000); 
+             const m = Math.floor((dist % 3600000) / 60000); 
+             const s = Math.floor((dist % 60000) / 1000);
+             document.getElementById('countdown-display').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        }
+
         function finishSession() {
-            clearInterval(timerInterval);
+            stopWorker();
+            releaseWakeLock();
+            window.appMode = 'summary';
             document.getElementById('runner-view').classList.add('hidden');
             document.getElementById('runner-view').classList.remove('flex');
             document.getElementById('summary-view').classList.remove('hidden');
             document.getElementById('summary-view').classList.add('flex');
             renderSummary();
             playSound();
+            announce("Session Finished");
             sendSystemNotification("All Done", "The session has concluded!");
+            localStorage.setItem('sessionMaster_data_v2', JSON.stringify({ 
+                schemaVersion: CONFIG.SCHEMA_VERSION,
+                agenda, 
+                sessionName, 
+                soundSettings, 
+                runningState: { active: false } 
+            }));
         }
 
+        // FIX: Safe DOM building
         function renderSummary() {
             const list = document.getElementById('summary-list');
             list.innerHTML = '';
@@ -598,19 +1127,19 @@
                 const allocatedMins = item.duration;
                 const actualMins = allocatedMins + ((item.adjustment || 0) / 60);
                 let badgeClass = "", badgeText = "", rowClass = "bg-white border-slate-200";
-
-                if (actualMins < (allocatedMins * 0.8)) {
-                    badgeClass = "bg-slate-100 text-slate-600 border-slate-200"; badgeText = "Early"; rowClass = "bg-slate-50 border-slate-200 opacity-80";
-                } else if (actualMins > (allocatedMins + 2)) {
-                    badgeClass = "bg-red-50 text-red-600 border-red-200"; badgeText = "Overtime"; rowClass = "bg-red-50 border-red-200";
-                } else {
-                    badgeClass = "bg-emerald-50 text-emerald-600 border-emerald-200"; badgeText = "On Time";
-                }
+                if (actualMins < (allocatedMins * 0.8)) { badgeClass = "bg-slate-100 text-slate-600 border-slate-200"; badgeText = "Early"; rowClass = "bg-slate-50 border-slate-200 opacity-80"; }
+                else if (actualMins > (allocatedMins + 2)) { badgeClass = "bg-red-50 text-red-600 border-red-200"; badgeText = "Overtime"; rowClass = "bg-red-50 border-red-200"; }
+                else { badgeClass = "bg-emerald-50 text-emerald-600 border-emerald-200"; badgeText = "On Time"; }
                 const displayActual = Math.round(actualMins * 10) / 10;
-                const el = document.createElement('div');
-                el.className = `flex items-center justify-between p-4 rounded-lg border ${rowClass}`;
-                el.innerHTML = `<div><div class="font-bold text-slate-800">${item.title}</div><div class="text-xs text-slate-500 mt-1">Allocated: ${allocatedMins}m &middot; Actual: ${displayActual}m</div></div><div class="px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}">${badgeText}</div>`;
-                list.appendChild(el);
+                
+                const row = el('div', { className: `flex items-center justify-between p-4 rounded-lg border ${rowClass}` }, [
+                    el('div', {}, [
+                        el('div', { className: 'font-bold text-slate-800' }, [item.title]),
+                        el('div', { className: 'text-xs text-slate-500 mt-1' }, [`Allocated: ${allocatedMins}m · Actual: ${displayActual}m`])
+                    ]),
+                    el('div', { className: `px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}` }, [badgeText])
+                ]);
+                list.appendChild(row);
             });
         }
 
@@ -618,77 +1147,228 @@
             document.getElementById('summary-view').classList.add('hidden');
             document.getElementById('summary-view').classList.remove('flex');
             document.getElementById('setup-view').classList.remove('hidden');
+            window.appMode = 'setup';
         }
 
         // --- UTILS ---
-        function sendSystemNotification(title, body) { if ("Notification" in window && Notification.permission === "granted") new Notification(title, { body: body }); }
-        function showToast(msg) { 
-            const el = document.getElementById('toast-message'); el.innerText = msg; 
-            const c = document.getElementById('toast-container'); c.classList.remove('hidden', 'toast-exit'); c.classList.add('toast-enter'); 
-            if(toastTimeout) clearTimeout(toastTimeout); toastTimeout = setTimeout(hideToast, 30000); 
+        function sendSystemNotification(title, body) { 
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(title, { body: body }); 
+            }
         }
+        function showToast(msg) { const el = document.getElementById('toast-message'); el.innerText = msg; const c = document.getElementById('toast-container'); c.classList.remove('hidden', 'toast-exit'); c.classList.add('toast-enter'); if(toastTimeout) clearTimeout(toastTimeout); toastTimeout = setTimeout(hideToast, 30000); }
         function hideToast() { const c = document.getElementById('toast-container'); c.classList.remove('toast-enter'); c.classList.add('toast-exit'); setTimeout(() => c.classList.add('hidden'), 500); }
+        function onSoundTypeChange() { const id = document.getElementById('sound-select').value; const presetVol = soundPresets[id] || 0.5; document.getElementById('volume-slider').value = presetVol; updateSoundSettings(); }
         
-        // --- SOUND LOGIC ---
-        function onSoundTypeChange() {
-            const id = document.getElementById('sound-select').value;
-            const presetVol = soundPresets[id] || 0.5;
-            document.getElementById('volume-slider').value = presetVol;
-            updateSoundSettings();
+        function updateSoundSettings() { 
+            const id = document.getElementById('sound-select').value; 
+            const volume = parseFloat(document.getElementById('volume-slider').value) || 0; 
+            soundSettings = { id, volume }; 
+            saveData(); 
         }
-        function updateSoundSettings() {
-            const id = document.getElementById('sound-select').value;
-            const volume = document.getElementById('volume-slider').value;
-            soundSettings = { id, volume };
-            saveData();
-        }
+        
         function stopSound() { if (soundTimeout) clearTimeout(soundTimeout); const audio = document.getElementById('chime'); audio.pause(); audio.currentTime = 0; }
-        function previewSound() {
-            stopSound(); const audio = document.getElementById('chime'); audio.src = soundAssets[soundSettings.id]; audio.volume = soundSettings.volume; audio.play().catch(e => console.log("Audio play failed"));
-            const duration = (soundSettings.id === 'gong') ? 2000 : 5000;
-            soundTimeout = setTimeout(stopSound, duration);
-        }
-        function playSound() { 
-            stopSound(); const audio = document.getElementById('chime'); audio.src = soundAssets[soundSettings.id]; audio.volume = soundSettings.volume; audio.play().catch(e => console.log("Audio play failed")); 
-            const duration = (soundSettings.id === 'gong') ? 2000 : 5000;
+        
+        function previewSound() { 
+            stopSound(); 
+            const audio = document.getElementById('chime'); 
+            audio.src = soundAssets[soundSettings.id]; 
+            audio.volume = soundSettings.volume; 
+            audio.play().catch(e => console.log("Audio play failed (user interaction needed)")); 
+            const duration = (soundSettings.id === 'gong') ? 2000 : 5000; 
             soundTimeout = setTimeout(stopSound, duration); 
         }
         
-        // --- SCHEDULING LOGIC ---
-        function checkScheduleInput() {
-            const picker = document.getElementById('start-time-picker');
-            const clearBtn = document.getElementById('clear-schedule-btn');
-            if(picker.value) {
-                clearBtn.classList.remove('hidden');
-                document.getElementById('start-btn-text').innerText = "Start Session";
-            } else {
-                clearBtn.classList.add('hidden');
-                document.getElementById('start-btn-text').innerText = "Start Session";
+        function playSound() { 
+            stopSound(); 
+            const audio = document.getElementById('chime'); 
+            // Graceful fallback if src is empty
+            if(!audio.src || !audio.src.includes(soundSettings.id)) {
+                audio.src = soundAssets[soundSettings.id]; 
+            }
+            audio.volume = soundSettings.volume; 
+            audio.play().catch(e => console.log("Auto-play blocked")); 
+            const duration = (soundSettings.id === 'gong') ? 2000 : 5000; 
+            soundTimeout = setTimeout(stopSound, duration); 
+        }
+
+        function checkScheduleInput() { 
+            const picker = document.getElementById('start-time-picker'); 
+            const clearBtn = document.getElementById('clear-schedule-btn'); 
+            const mainBtnText = document.getElementById('start-btn-text');
+            
+            if(picker.value) { 
+                clearBtn.classList.remove('hidden'); 
+                // FIX: Change button text to indicate confirmation of schedule
+                mainBtnText.innerText = "Schedule"; 
+            } else { 
+                clearBtn.classList.add('hidden'); 
+                mainBtnText.innerText = "Start Session"; 
+            } 
+        }
+        function clearScheduleInput() { document.getElementById('start-time-picker').value = ''; checkScheduleInput(); }
+        
+        function togglePause() { 
+            isPaused = !isPaused; 
+            if (isPaused) { 
+                targetEndTime = null;
+                // FIX: Stop worker on pause to save battery
+                stopWorker();
+            } else { 
+                targetEndTime = Date.now() + (timeLeft * 1000); 
+                startWorker();
+                requestWakeLock();
+                // FIX: Unlock audio on resume
+                unlockAudio();
+            } 
+            saveData(); 
+            updatePauseButton();
+            document.getElementById('timer-display').classList.toggle('opacity-50', isPaused);
+        }
+        function updatePauseButton() { const btn = document.getElementById('btn-pause'); if (isPaused) { btn.innerHTML = `<span>▶</span> Resume`; btn.className = "w-32 px-6 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2"; } else { btn.innerHTML = `<span>⏸</span> Pause`; btn.className = "w-32 px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2"; } }
+        
+        // --- CUSTOM MODAL LOGIC ---
+        function showModal(title, message, actions) {
+            // ensure we know what element had focus before modal opened
+            lastFocusedElement = lastFocusedElement || document.activeElement;
+
+            const modal = document.getElementById('custom-modal');
+            const modalContent = document.getElementById('modal-content');
+            const titleEl = document.getElementById('modal-title');
+            const msgEl = document.getElementById('modal-message');
+            const actionsEl = document.getElementById('modal-actions');
+
+            // semantics + block background scroll
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            document.body.style.overflow = 'hidden';
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+            actionsEl.innerHTML = '';
+            
+            let firstBtn = null;
+            let lastBtn = null;
+            let primaryBtn = null; 
+
+            actions.forEach((action, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 rounded-lg font-medium text-sm transition ${action.primary ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`;
+                btn.textContent = action.label;
+                btn.type = "button";
+                btn.onclick = () => {
+                    // close modal first so callback can safely manipulate focus/UI
+                    closeModal();
+                    if(action.callback) action.callback();
+                };
+                actionsEl.appendChild(btn);
+                
+                if (idx === 0) firstBtn = btn;
+                lastBtn = btn;
+                if (action.primary) primaryBtn = btn; 
+            });
+
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; // force reflow to allow animation
+            modal.classList.add('modal-enter');
+            modalContent.classList.add('modal-content-enter');
+            
+            // focus the primary button if present, otherwise first
+            const btnToFocus = primaryBtn || firstBtn || lastBtn;
+            if (btnToFocus) btnToFocus.focus();
+
+            // focus trap key handler (store on modal so we can remove it later)
+            const keyHandler = (e) => {
+                if(e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal();
+                    return;
+                }
+                if(e.key === 'Tab') {
+                    const focusable = Array.from(actionsEl.querySelectorAll('button'));
+                    if (focusable.length === 0) return;
+                    const first = focusable[0];
+                    const last = focusable[focusable.length - 1];
+
+                    if (e.shiftKey) {
+                        if (document.activeElement === first) { 
+                            e.preventDefault(); 
+                            last.focus(); 
+                        }
+                    } else {
+                        if (document.activeElement === last) { 
+                            e.preventDefault(); 
+                            first.focus(); 
+                        }
+                    }
+                }
+            };
+            modal._keyHandler = keyHandler;
+            modal.addEventListener('keydown', keyHandler);
+        }
+
+        let lastFocusedElement = null;
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const modalContent = document.getElementById('modal-content');
+            modal.classList.remove('modal-enter');
+            modalContent.classList.remove('modal-content-enter');
+            
+            // remove key handler if present
+            if (modal._keyHandler) {
+                modal.removeEventListener('keydown', modal._keyHandler);
+                delete modal._keyHandler;
+            }
+
+            // restore scrolling immediately (animation will finish)
+            document.body.style.overflow = '';
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.removeAttribute('role');
+                modal.removeAttribute('aria-modal');
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                    lastFocusedElement.focus();
+                }
+                lastFocusedElement = null;
+            }, 200);
+        }
+
+        function showAlert(message) {
+            lastFocusedElement = document.activeElement;
+            showModal("Attention", message, [{ label: "OK", primary: true }]);
+        }
+
+        function showConfirm(message, onYes) {
+            lastFocusedElement = document.activeElement;
+            showModal("Confirm", message, [
+                { label: "Cancel", primary: false },
+                { label: "Yes, Proceed", primary: true, callback: onYes }
+            ]);
+        }
+
+        // --- SELF TESTS ---
+        function runSelfTests() {
+            try {
+                // Test 1: ID Gen
+                const id1 = generateId();
+                const id2 = generateId();
+                if (id1 === id2 || typeof id1 !== 'string') throw new Error('ID Generation failed');
+
+                // Test 2: Progress Math
+                if (calculateProgress(50, 100) !== 50) throw new Error('Math: 50% failed');
+                if (calculateProgress(0, 100) !== 0) throw new Error('Math: 0% failed');
+                if (calculateProgress(150, 100) !== 100) throw new Error('Math: clamp high failed');
+                
+                console.log('%c✓ Self-Tests Passed', 'color: #10b981; font-weight: bold;');
+            } catch(e) {
+                console.error('❌ Self-Tests Failed:', e);
             }
         }
 
-        function clearScheduleInput() {
-            document.getElementById('start-time-picker').value = '';
-            checkScheduleInput();
-        }
-
-        function updateCountdown(targetTime) {
-           const dist = targetTime - Date.now();
-           if (dist > 0) {
-               const h = Math.floor((dist % (86400000)) / 3600000); const m = Math.floor((dist % 3600000) / 60000); const s = Math.floor((dist % 60000) / 1000);
-               document.getElementById('countdown-display').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-           }
-        }
-        function togglePause() { isPaused = !isPaused; updatePauseButton(); document.getElementById('timer-display').classList.toggle('opacity-50', isPaused); }
-        function updatePauseButton() {
-            const btn = document.getElementById('btn-pause');
-            if (isPaused) { btn.innerHTML = `<span>▶</span> Resume`; btn.className = "w-32 px-6 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2"; }
-            else { btn.innerHTML = `<span>⏸</span> Pause`; btn.className = "w-32 px-6 py-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md transition flex justify-center items-center gap-2"; }
-        }
-
         // Init
-        loadData(); renderList();
-        checkScheduleInput(); // Init schedule UI state
+        runSelfTests();
+        loadData(); renderList(); checkScheduleInput(); 
         document.getElementById('input-time').addEventListener('keypress', function (e) { if (e.key === 'Enter') saveItem(); });
 
     </script>
