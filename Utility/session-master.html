@@ -27,14 +27,16 @@
         .drag-handle:active { cursor: grabbing; color: #3b82f6; }
 
         .draggable-item { 
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            cursor: grab; /* Desktop grab anywhere */
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
             position: relative; 
         }
+        .draggable-item:active { cursor: grabbing; }
+
         .draggable-item.dragging { 
-            opacity: 0.9; 
+            opacity: 0.5; 
             background: #f0f9ff; 
             border: 2px dashed #3b82f6; 
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             z-index: 10;
         }
 
@@ -82,9 +84,11 @@
 
     <div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none hidden">
         <div class="bg-slate-800 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 pointer-events-auto border border-slate-600">
-            <div class="text-2xl">⚠️</div>
+            <!-- Added ID for dynamic icon -->
+            <div id="toast-icon" class="text-2xl">ℹ️</div>
             <div>
-                <h4 class="font-bold text-sm uppercase tracking-wider text-amber-400">Notice</h4>
+                <!-- Added ID for dynamic title and color -->
+                <h4 id="toast-title" class="font-bold text-sm uppercase tracking-wider text-blue-400">Notice</h4>
                 <p id="toast-message" class="text-sm">Notification</p>
             </div>
             <button onclick="hideToast()" class="ml-4 text-slate-400 hover:text-white" aria-label="Close notification" type="button">✕</button>
@@ -181,7 +185,8 @@
             </div>
 
             <!-- AGENDA LIST -->
-            <div class="flex-1 overflow-y-auto scroller p-4 bg-white relative">
+            <!-- ID added to container for scroll targeting -->
+            <div id="agenda-scroller" class="flex-1 overflow-y-auto scroller p-4 bg-white relative">
                 <ul id="agenda-list" class="space-y-2 pb-10" role="list"></ul>
                 <div id="empty-state" class="text-center text-slate-400 py-12 hidden">
                     <div class="text-4xl mb-2">📝</div>
@@ -203,7 +208,7 @@
                     </button>
                 </div>
 
-                <button onclick="handleStartAction()" class="w-full md:w-52 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-2.5 rounded-xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-2 shrink-0" type="button">
+                <button onclick="handleStartAction()" class="w-full md:w-52 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-2.5 rounded-xl shadow-lg transform active:scale-95 transition flex items-center justify-center gap-2 shrink-0" type="button" id="start-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <span id="start-btn-text">Start Session</span>
                 </button>
@@ -280,18 +285,19 @@
     <audio id="chime" src="" preload="auto"></audio>
 
     <script>
-        // --- CONSTANTS & GLOBALS ---
+        // --- 1. CONSTANTS & GLOBALS ---
         const CONFIG = {
             SCHEMA_VERSION: 1,
             TICK_RATE_MS: 500,
             SAVE_DEBOUNCE_MS: 500,
             MAX_WORKER_RESTARTS: 3,
-            MAX_BACKOFF_MS: 30000
+            MAX_BACKOFF_MS: 30000,
+            SCROLL_ZONE_PX: 50,
+            SCROLL_SPEED_PX: 10
         };
 
         window.appMode = 'setup'; 
         
-        // Debug object for user inspection
         window.__appDiagnostics = {
             state: 'init',
             lastTick: 0,
@@ -325,13 +331,16 @@
         let sessionName = "Session Master";
         let soundSettings = { id: 'chime', volume: 0.5 };
         let soundTimeout = null; 
-        let halfwayAnnounced = false; // Flag to prevent duplicate announcements
+        let halfwayAnnounced = false; 
         
         let targetEndTime = null;
         let runningState = { active: false, paused: false, savedTime: null };
-        let wakeLock = null; 
-        
-        // --- HELPER FUNCTIONS ---
+        let wakeLock = null;
+        let saveTimeout;
+        let touchDragItem = null;
+        let touchMoveThrottle = 0;
+
+        // --- 2. HELPER FUNCTIONS ---
         
         function generateId() {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -346,19 +355,22 @@
             return Math.min(100, Math.max(0, pct));
         }
 
-        // Safe DOM Creator (Updated to handle SVGs correctly)
+        // FIX: Helper to format time components
+        function getFormattedTime(seconds) {
+            const safeTime = Math.max(0, seconds);
+            const m = Math.floor(safeTime / 60).toString().padStart(2, '0');
+            const s = (safeTime % 60).toString().padStart(2, '0');
+            return { m, s };
+        }
+
         function el(tag, attrs = {}, children = []) {
-            // Detect if we need the SVG namespace
-            const isSvg = ['svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon'].includes(tag);
-            
+            const isSvg = ['svg', 'path', 'circle', 'rect'].includes(tag);
             const node = isSvg 
                 ? document.createElementNS("http://www.w3.org/2000/svg", tag)
                 : document.createElement(tag);
 
             for (const [key, value] of Object.entries(attrs)) {
                 if (key === 'className') {
-                    // setAttribute works for both HTML (class) and SVG (class)
-                    // whereas .className is read-only on SVG elements in some contexts
                     node.setAttribute('class', value);
                 }
                 else if (key.startsWith('on') && typeof value === 'function') {
@@ -384,203 +396,6 @@
             setTimeout(() => { announcer.textContent = text; }, 50);
         }
 
-        // --- WORKER MANAGEMENT ---
-        const workerCode = `
-            let intervalId = null;
-            self.onmessage = function(e) {
-                if (e.data === 'start') {
-                    if (intervalId) clearInterval(intervalId);
-                    intervalId = setInterval(() => postMessage('tick'), ${CONFIG.TICK_RATE_MS}); 
-                } else if (e.data === 'stop') {
-                    clearInterval(intervalId);
-                    intervalId = null;
-                }
-            };
-        `;
-        
-        let timerWorker = null;
-        let fallbackIntervalId = null;
-        let workerRestartAttempts = 0;
-        const MAX_WORKER_RESTARTS = 3;
-
-        function startWorker() {
-            // FIX: Explicit reset of attempts on successful start initiation
-            workerRestartAttempts = 0;
-
-            // Guard: If worker exists and is running, just reuse it
-            if (timerWorker) {
-                try {
-                    timerWorker.postMessage('start');
-                    return;
-                } catch(e) {
-                    console.error("Worker exists but postMessage failed", e);
-                    // Fall through to recreation if postMessage fails (e.g. terminated externally)
-                }
-            }
-
-            try {
-                const blob = new Blob([workerCode], { type: 'application/javascript' });
-                const blobUrl = URL.createObjectURL(blob);
-                timerWorker = new Worker(blobUrl);
-                URL.revokeObjectURL(blobUrl);
-                
-                timerWorker.onmessage = function(e) {
-                    if (e.data === 'tick') {
-                        // Success - running normally
-                        workerRestartAttempts = 0; // FIX: Reset on success
-                        window.__appDiagnostics.lastTick = Date.now();
-                        tick();
-                    }
-                };
-                
-                timerWorker.onerror = function(e) {
-                    console.error('Timer worker crashed:', e);
-                    window.__appDiagnostics.timerWorkerStatus = 'crashed';
-                    
-                    try { timerWorker.terminate(); } catch(err){}
-                    timerWorker = null;
-
-                    workerRestartAttempts++;
-                    
-                    // RELIABILITY FIX: Fallback to main thread if worker keeps dying
-                    if (workerRestartAttempts > CONFIG.MAX_WORKER_RESTARTS) {
-                        console.warn('Worker unstable, switching to fallback interval');
-                        startFallbackTimer();
-                        return;
-                    }
-
-                    // Exponential Backoff
-                    const delay = Math.min(100 * Math.pow(2, workerRestartAttempts), CONFIG.MAX_BACKOFF_MS);
-                    setTimeout(startWorker, delay);
-                };
-                
-                window.__appDiagnostics.timerWorkerStatus = 'running';
-                // FIX #1 Guard postMessage
-                if (timerWorker) {
-                    timerWorker.postMessage('start');
-                }
-
-            } catch(e) {
-                console.warn("Worker creation failed, using fallback interval", e);
-                if (timerWorker) {
-                    try { timerWorker.terminate(); } catch(err){}
-                    timerWorker = null;
-                }
-                startFallbackTimer();
-            }
-        }
-
-        function startFallbackTimer() {
-            // reset restart attempts when switching to fallback
-            workerRestartAttempts = 0;
-            if (fallbackIntervalId) clearInterval(fallbackIntervalId);
-            fallbackIntervalId = setInterval(() => {
-                 tick();
-            }, CONFIG.TICK_RATE_MS);
-            window.__appDiagnostics.timerWorkerStatus = 'fallback';
-        }
-
-        function stopWorker() {
-            if (timerWorker) {
-                try {
-                    timerWorker.postMessage('stop');
-                    timerWorker.terminate();
-                } catch(e){}
-                timerWorker = null;
-                window.__appDiagnostics.timerWorkerStatus = 'terminated';
-            }
-            if (fallbackIntervalId) {
-                clearInterval(fallbackIntervalId);
-                fallbackIntervalId = null;
-            }
-        }
-
-        window.addEventListener('beforeunload', stopWorker);
-
-        // --- WAKE LOCK API ---
-        async function requestWakeLock() {
-            if ('wakeLock' in navigator && document.visibilityState === 'visible') {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                } catch (err) {
-                    // Suppress console error as it's common in iframes/background
-                    console.log('Wake Lock inactive:', err.message); 
-                }
-            }
-        }
-
-        async function releaseWakeLock() {
-            if (wakeLock !== null) {
-                try { await wakeLock.release(); } catch(e){}
-                wakeLock = null;
-            }
-        }
-
-        document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState === 'visible') {
-                await requestWakeLock();
-            } else {
-                // Release explicitly when backgrounded to be good citizen
-                await releaseWakeLock();
-            }
-        });
-
-        // --- LOAD/SAVE ---
-        function loadData() {
-            const saved = localStorage.getItem('sessionMaster_data_v2'); 
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-
-                    if (!parsed.schemaVersion && Array.isArray(parsed.agenda)) {
-                        console.log("Migrating legacy data to v1");
-                        parsed.schemaVersion = CONFIG.SCHEMA_VERSION;
-                    }
-
-                    if (parsed.schemaVersion !== CONFIG.SCHEMA_VERSION) {
-                        // Best-effort: back up raw saved data before any destructive action
-                        try {
-                            localStorage.setItem('sessionMaster_data_v2_backup_' + Date.now(), saved);
-                            console.warn('Saved data schema mismatch — backup created.');
-                        } catch (e) {
-                            console.error('Failed to create backup of saved data', e);
-                        }
-                        // continue and attempt to use fields if present
-                    }
-
-                    if (parsed.agenda && Array.isArray(parsed.agenda)) {
-                        agenda = (parsed.agenda || []).map(item => ({...item, adjustment: item.adjustment || 0}));
-                        sessionName = parsed.sessionName || "Session Master";
-                        document.getElementById('session-name-input').value = parsed.sessionName || "";
-
-                        if (parsed.soundSettings) {
-                            soundSettings = parsed.soundSettings;
-                            if (soundSettings.id === 'bell') soundSettings.id = 'chime';
-                            document.getElementById('sound-select').value = soundSettings.id;
-                            document.getElementById('volume-slider').value = soundSettings.volume;
-                        }
-
-                        if (parsed.runningState && parsed.runningState.active) {
-                            restoreSession(parsed.runningState);
-                        }
-                    } else {
-                        throw new Error("Invalid structure");
-                    }
-                } catch (e) {
-                    console.warn("Data corrupted or incompatible, resetting to defaults.", e);
-                    try { localStorage.removeItem('sessionMaster_data_v2'); } catch(e){}
-                    agenda = [...defaultData];
-                    document.getElementById('session-name-input').value = "";
-                    showToast("App updated or data invalid. Session reset.");
-                }
-            } else {
-                agenda = [...defaultData];
-                document.getElementById('session-name-input').value = "";
-            }
-            if (sessionName) document.getElementById('header-title').innerText = sessionName || "Session Master";
-        }
-
-        let saveTimeout;
         function saveData() {
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(saveDataImpl, CONFIG.SAVE_DEBOUNCE_MS);
@@ -610,6 +425,470 @@
             
             window.__appDiagnostics.savedAt = payload.lastSavedAt;
             localStorage.setItem('sessionMaster_data_v2', JSON.stringify(payload));
+        }
+
+        function moveItem(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= agenda.length) return;
+            const temp = agenda[index];
+            agenda[index] = agenda[newIndex];
+            agenda[newIndex] = temp;
+            saveData();
+            renderList();
+        }
+
+        function toggleMute(index) { agenda[index].muted = !agenda[index].muted; saveData(); renderList(); }
+        
+        function editItem(index) { editingIndex = index; const item = agenda[index]; document.getElementById('input-title').value = item.title; document.getElementById('input-time').value = item.duration; document.getElementById('input-type').value = item.type; const btn = document.getElementById('btn-add-update'); btn.innerHTML = 'Update'; btn.classList.replace('bg-blue-600', 'bg-amber-500'); btn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600'); document.getElementById('btn-cancel-edit').classList.remove('hidden'); renderList(); }
+        
+        function cancelEdit() { editingIndex = null; document.getElementById('input-title').value = ''; document.getElementById('input-time').value = ''; const btn = document.getElementById('btn-add-update'); btn.innerHTML = '+ Add'; btn.classList.replace('bg-amber-500', 'bg-blue-600'); btn.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700'); document.getElementById('btn-cancel-edit').classList.add('hidden'); renderList(); }
+        
+        function removeItem(index) { if (index === editingIndex) cancelEdit(); agenda.splice(index, 1); saveData(); renderList(); }
+
+        function saveItem() {
+            const titleEl = document.getElementById('input-title');
+            const timeEl = document.getElementById('input-time');
+            const typeEl = document.getElementById('input-type');
+
+            const title = titleEl.value.trim();
+            const duration = parseInt(timeEl.value);
+            const type = typeEl.value;
+
+            // 1. Validate Duration (Required for everything)
+            if (isNaN(duration) || duration <= 0) {
+                showToast("Please enter a valid duration in minutes.", 'error');
+                timeEl.focus();
+                return;
+            }
+
+            // 2. Validate Name (Required only for Regular items)
+            if (type === 'regular' && !title) {
+                showToast("Please enter a name for the activity.", 'error');
+                titleEl.focus();
+                return;
+            }
+
+            const finalTitle = (type === 'break' && !title) ? "Break" : title;
+            const newItem = { id: generateId(), title: finalTitle, duration, type, muted: false, adjustment: 0 };
+            
+            if (editingIndex !== null) { 
+                const ex = agenda[editingIndex]; 
+                agenda[editingIndex] = { ...ex, title: finalTitle, duration, type }; 
+                showToast("Activity updated successfully", 'success');
+                cancelEdit(); 
+            } 
+            else { 
+                agenda.push(newItem); 
+                titleEl.value = ''; 
+                timeEl.value = ''; 
+                titleEl.focus(); 
+                showToast("Activity added successfully", 'success');
+            }
+            saveData(); 
+            renderList();
+        }
+
+        // --- 3. DRAG & DROP HANDLERS ---
+
+        function handleDragStart(e) { 
+            // Desktop: Allow drag UNLESS interacting with input/button
+            const target = e.target;
+            const isInteractive = target.tagName === 'BUTTON' || target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.closest('button');
+            
+            if (isInteractive) {
+                e.preventDefault(); 
+                return;
+            }
+            
+            this.classList.add('dragging'); 
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
+        }
+
+        function handleDragOver(e) { 
+            e.preventDefault(); 
+            const container = document.getElementById('agenda-list'); 
+            const after = getDragAfterElement(container, e.clientY); 
+            const draggable = document.querySelector('.dragging'); 
+            if (!draggable) return;
+
+            if (after == null) container.appendChild(draggable); 
+            else container.insertBefore(draggable, after); 
+        }
+
+        function handleDragEnd(e) { 
+            this.classList.remove('dragging'); 
+            saveNewOrder();
+        }
+
+        function handleTouchStart(e) {
+            // Mobile: Strict handle-only check
+            if (!e.target.closest('.drag-handle')) return; 
+            touchDragItem = this;
+            this.classList.add('dragging');
+        }
+
+        function handleTouchMove(e) {
+            if (!touchDragItem) return;
+            if (e.cancelable) e.preventDefault();
+
+            const touch = e.touches[0];
+            const container = document.getElementById('agenda-list');
+            const scroller = document.getElementById('agenda-scroller');
+
+            // Auto-Scroll Logic
+            const scrollerRect = scroller.getBoundingClientRect();
+            if (touch.clientY < scrollerRect.top + CONFIG.SCROLL_ZONE_PX) {
+                scroller.scrollTop -= CONFIG.SCROLL_SPEED_PX;
+            } else if (touch.clientY > scrollerRect.bottom - CONFIG.SCROLL_ZONE_PX) {
+                scroller.scrollTop += CONFIG.SCROLL_SPEED_PX;
+            }
+
+            const after = getDragAfterElement(container, touch.clientY);
+            if (after == null) container.appendChild(touchDragItem); 
+            else container.insertBefore(touchDragItem, after); 
+        }
+
+        function handleTouchEnd(e) {
+            if (!touchDragItem) return;
+            touchDragItem.classList.remove('dragging');
+            touchDragItem = null;
+            saveNewOrder();
+        }
+
+        function getDragAfterElement(container, y) { 
+            const draggables = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
+            let closest = null;
+            let closestOffset = Number.NEGATIVE_INFINITY;
+
+            draggables.forEach(child => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closestOffset) {
+                    closestOffset = offset;
+                    closest = child;
+                }
+            });
+            return closest;
+        }
+
+        function saveNewOrder() {
+            const ids = Array.from(document.getElementById('agenda-list').children).map(li => li.getAttribute('data-id')); 
+            const newA = []; 
+            ids.forEach(id => { 
+                const item = agenda.find(i => i.id === id); 
+                if(item) newA.push(item); 
+            }); 
+            if(newA.length === agenda.length) { 
+                agenda = newA; 
+                saveData(); 
+                renderList(); 
+            } else {
+                renderList(); 
+            }
+        }
+
+        // --- 4. CORE RENDER FUNCTIONS ---
+
+        function renderList() {
+            const listEl = document.getElementById('agenda-list');
+            const emptyEl = document.getElementById('empty-state');
+            listEl.innerHTML = ''; 
+            
+            if (agenda.length === 0) { emptyEl.classList.remove('hidden'); } else { emptyEl.classList.add('hidden'); }
+
+            let totalMins = 0;
+            agenda.forEach((item, index) => {
+                totalMins += item.duration;
+                const isEditing = index === editingIndex;
+                const activeClass = isEditing ? 'ring-2 ring-blue-400 bg-blue-50' : 'bg-white';
+                const isMuted = item.muted === true;
+                const isBreak = item.type === 'break';
+
+                const dragIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5 pointer-events-none", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" }, [
+                    el('path', { "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-width": "2", d: "M4 8h16M4 16h16" })
+                ]);
+                const editIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5", viewBox: "0 0 20 20", fill: "currentColor" }, [
+                    el('path', { d: "M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" })
+                ]);
+                const trashIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5", viewBox: "0 0 20 20", fill: "currentColor" }, [
+                    el('path', { "fill-rule": "evenodd", d: "M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z", "clip-rule": "evenodd" })
+                ]);
+
+                const leftContent = el('div', { className: "flex items-center gap-3 overflow-hidden flex-1" }, [
+                    el('div', { className: "drag-handle text-slate-300 flex items-center justify-center", title: "Drag to reorder" }, [dragIcon]),
+                    el('div', { className: "bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded min-w-[3rem] text-center" }, [`${item.duration}m`]),
+                    el('div', { className: "truncate font-medium text-slate-700" }, [isBreak ? '☕ ' : '', item.title])
+                ]);
+
+                const buttons = el('div', { className: "flex gap-1 items-center shrink-0 group" }, [
+                    el('button', { className: "reorder-btn text-slate-400 hover:text-blue-600", 'aria-label': "Move Up", type:"button", onclick: () => moveItem(index, -1) }, ["↑"]),
+                    el('button', { className: "reorder-btn text-slate-400 hover:text-blue-600", 'aria-label': "Move Down", type:"button", onclick: () => moveItem(index, 1) }, ["↓"]),
+                    el('button', { className: "transition p-1 hover:bg-slate-100 rounded ml-1", title: isMuted ? "Unmute" : "Mute", 'aria-label': isMuted ? "Unmute Section" : "Mute Section", type:"button", onclick: () => toggleMute(index) }, [isMuted ? '🔕' : '🔔']),
+                    el('button', { className: "text-slate-300 hover:text-blue-500 transition p-1", title: "Edit", 'aria-label': "Edit Section", type:"button", onclick: () => editItem(index) }, [editIcon]),
+                    el('button', { className: "text-slate-300 hover:text-red-500 transition p-1", title: "Remove", 'aria-label': "Remove Section", type:"button", onclick: () => removeItem(index) }, [trashIcon])
+                ]);
+
+                const li = el('li', { 
+                    className: `draggable-item flex items-center justify-between p-3 border border-slate-200 rounded-lg shadow-sm group ${isBreak ? 'border-l-4 border-l-amber-400' : ''} ${activeClass}`,
+                    draggable: 'true',
+                    'data-id': item.id
+                }, [leftContent, buttons]);
+
+                li.addEventListener('dragstart', handleDragStart);
+                li.addEventListener('dragend', handleDragEnd);
+                
+                li.addEventListener('touchstart', handleTouchStart, {passive: false});
+                li.addEventListener('touchmove', handleTouchMove, {passive: false});
+                li.addEventListener('touchend', handleTouchEnd);
+
+                listEl.appendChild(li);
+            });
+            const h = Math.floor(totalMins / 60);
+            const m = totalMins % 60;
+            document.getElementById('total-time-display').innerText = `${h}h ${m}m`;
+        }
+
+        function updateSectionUI(item) {
+            const titleEl = document.getElementById('timer-title');
+            const bgEl = document.getElementById('timer-bg');
+            const badgeEl = document.getElementById('current-badge');
+            titleEl.innerText = item.title;
+            const nextItem = agenda[currentIndex + 1];
+            document.getElementById('next-title-text').innerText = nextItem ? `${nextItem.duration}m - ${nextItem.title}` : "Finish";
+            document.getElementById('allocated-display').innerText = `${item.duration}m`;
+            if (item.type === 'break') {
+                bgEl.className = "flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-500 relative bg-amber-50";
+                badgeEl.innerText = "☕ Break Time";
+                badgeEl.className = "px-3 py-1 rounded-full bg-amber-200 text-amber-800 text-xs font-bold uppercase tracking-wider mb-2";
+            } else {
+                bgEl.className = "flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-500 relative bg-white";
+                badgeEl.innerText = "Current Section";
+                badgeEl.className = "px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider mb-2";
+            }
+        }
+
+        function updateDisplay() {
+            // Also update title for consistency when interacting directly
+            updatePageTitle();
+
+            const { m, s } = getFormattedTime(timeLeft);
+            document.getElementById('timer-display').innerText = `${m}:${s}`;
+            
+            const adjSec = agenda[currentIndex].adjustment || 0;
+            const diffEl = document.getElementById('diff-display');
+            if (adjSec !== 0) {
+                const sign = adjSec > 0 ? "+" : "-";
+                const displayAdj = Math.ceil(Math.abs(adjSec)/60);
+                diffEl.innerText = `(${sign}${displayAdj}m)`;
+                diffEl.className = adjSec > 0 ? "text-emerald-500 ml-1" : "text-red-500 ml-1";
+            } else { diffEl.innerText = ""; }
+
+            let elapsedPrior = 0;
+            for(let i=0; i<currentIndex; i++) elapsedPrior += agenda[i].duration * 60;
+            const currentTotalStart = (agenda[currentIndex].duration * 60) + (agenda[currentIndex].adjustment || 0);
+            const currentElapsed = Math.max(0, currentTotalStart - timeLeft); 
+            
+            const percentage = calculateProgress(elapsedPrior + currentElapsed, totalDurationSec);
+            document.getElementById('progress-bar').style.width = `${percentage}%`;
+        }
+
+        function updateCountdownUI(dist) {
+             const h = Math.floor((dist % (86400000)) / 3600000); 
+             const m = Math.floor((dist % 3600000) / 60000); 
+             const s = Math.floor((dist % 60000) / 1000);
+             const timeStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+             
+             document.getElementById('countdown-display').innerText = timeStr;
+             document.title = `Starts in ${timeStr}`;
+        }
+        
+        function renderSummary() {
+            const list = document.getElementById('summary-list');
+            list.innerHTML = '';
+            agenda.forEach(item => {
+                const allocatedMins = item.duration;
+                const actualMins = allocatedMins + ((item.adjustment || 0) / 60);
+                let badgeClass = "", badgeText = "", rowClass = "bg-white border-slate-200";
+                if (actualMins < (allocatedMins * 0.8)) { badgeClass = "bg-slate-100 text-slate-600 border-slate-200"; badgeText = "Early"; rowClass = "bg-slate-50 border-slate-200 opacity-80"; }
+                else if (actualMins > (allocatedMins + 2)) { badgeClass = "bg-red-50 text-red-600 border-red-200"; badgeText = "Overtime"; rowClass = "bg-red-50 border-red-200"; }
+                else { badgeClass = "bg-emerald-50 text-emerald-600 border-emerald-200"; badgeText = "On Time"; }
+                const displayActual = Math.round(actualMins * 10) / 10;
+                
+                const row = el('div', { className: `flex items-center justify-between p-4 rounded-lg border ${rowClass}` }, [
+                    el('div', {}, [
+                        el('div', { className: 'font-bold text-slate-800' }, [item.title]),
+                        el('div', { className: 'text-xs text-slate-500 mt-1' }, [`Allocated: ${allocatedMins}m · Actual: ${displayActual}m`])
+                    ]),
+                    el('div', { className: `px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}` }, [badgeText])
+                ]);
+                list.appendChild(row);
+            });
+        }
+        
+        // --- 6. WORKER & TIMER ---
+        const workerCode = `
+            let intervalId = null;
+            self.onmessage = function(e) {
+                if (e.data === 'start') {
+                    if (intervalId) clearInterval(intervalId);
+                    intervalId = setInterval(() => postMessage('tick'), ${CONFIG.TICK_RATE_MS}); 
+                } else if (e.data === 'stop') {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+            };
+        `;
+        
+        let timerWorker = null;
+        let fallbackIntervalId = null;
+        let workerRestartAttempts = 0;
+
+        function startWorker() {
+            workerRestartAttempts = 0;
+            if (timerWorker) {
+                try {
+                    timerWorker.postMessage('start');
+                    return;
+                } catch(e) { console.error("Worker exists but postMessage failed", e); }
+            }
+
+            try {
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                timerWorker = new Worker(blobUrl);
+                URL.revokeObjectURL(blobUrl);
+                
+                timerWorker.onmessage = function(e) {
+                    if (e.data === 'tick') {
+                        workerRestartAttempts = 0; 
+                        window.__appDiagnostics.lastTick = Date.now();
+                        tick();
+                    }
+                };
+                
+                timerWorker.onerror = function(e) {
+                    console.error('Timer worker crashed:', e);
+                    window.__appDiagnostics.timerWorkerStatus = 'crashed';
+                    try { timerWorker.terminate(); } catch(err){}
+                    timerWorker = null;
+                    workerRestartAttempts++;
+                    
+                    if (workerRestartAttempts > CONFIG.MAX_WORKER_RESTARTS) {
+                        console.warn('Worker unstable, switching to fallback interval');
+                        startFallbackTimer();
+                        return;
+                    }
+                    const delay = Math.min(100 * Math.pow(2, workerRestartAttempts), CONFIG.MAX_BACKOFF_MS);
+                    setTimeout(startWorker, delay);
+                };
+                
+                window.__appDiagnostics.timerWorkerStatus = 'running';
+                if (timerWorker) timerWorker.postMessage('start');
+
+            } catch(e) {
+                console.warn("Worker creation failed, using fallback interval", e);
+                if (timerWorker) { try { timerWorker.terminate(); } catch(err){} timerWorker = null; }
+                startFallbackTimer();
+            }
+        }
+
+        function startFallbackTimer() {
+            workerRestartAttempts = 0;
+            if (fallbackIntervalId) clearInterval(fallbackIntervalId);
+            fallbackIntervalId = setInterval(() => { tick(); }, CONFIG.TICK_RATE_MS);
+            window.__appDiagnostics.timerWorkerStatus = 'fallback';
+        }
+
+        function stopWorker() {
+            if (timerWorker) {
+                try { timerWorker.postMessage('stop'); timerWorker.terminate(); } catch(e){}
+                timerWorker = null;
+                window.__appDiagnostics.timerWorkerStatus = 'terminated';
+            }
+            if (fallbackIntervalId) {
+                clearInterval(fallbackIntervalId);
+                fallbackIntervalId = null;
+            }
+        }
+
+        window.addEventListener('beforeunload', stopWorker);
+
+        // --- 7. WAKE LOCK API ---
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator && document.visibilityState === 'visible') {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch (err) {
+                    console.log('Wake Lock inactive:', err.message); 
+                }
+            }
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock !== null) {
+                try { await wakeLock.release(); } catch(e){}
+                wakeLock = null;
+            }
+        }
+
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                await requestWakeLock();
+            } else {
+                await releaseWakeLock();
+            }
+        });
+
+        // --- 8. LOAD/SAVE ---
+        function loadData() {
+            const saved = localStorage.getItem('sessionMaster_data_v2'); 
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    
+                    if (!parsed.schemaVersion && Array.isArray(parsed.agenda)) {
+                        console.log("Migrating legacy data to v1");
+                        parsed.schemaVersion = CONFIG.SCHEMA_VERSION;
+                    }
+
+                    if (parsed.schemaVersion !== CONFIG.SCHEMA_VERSION) {
+                        try { 
+                            localStorage.setItem('sessionMaster_data_v2_backup_' + Date.now(), saved); 
+                            console.warn('Schema mismatch: backup created.');
+                        } catch(e) { console.error("Backup failed", e); }
+                    }
+
+                    if (parsed.agenda && Array.isArray(parsed.agenda)) {
+                        agenda = (parsed.agenda || []).map(item => ({...item, adjustment: item.adjustment || 0}));
+                        sessionName = parsed.sessionName || "Session Master";
+                        document.getElementById('session-name-input').value = parsed.sessionName || "";
+                        
+                        if (parsed.soundSettings) {
+                            soundSettings = parsed.soundSettings;
+                            if(soundSettings.id === 'bell') soundSettings.id = 'chime';
+                            document.getElementById('sound-select').value = soundSettings.id;
+                            document.getElementById('volume-slider').value = soundSettings.volume;
+                        }
+
+                        if (parsed.runningState && parsed.runningState.active) {
+                            restoreSession(parsed.runningState);
+                        }
+                    } else {
+                        throw new Error("Invalid structure");
+                    }
+                } catch (e) {
+                    console.warn("Data corrupted/outdated, resetting.", e);
+                    localStorage.removeItem('sessionMaster_data_v2');
+                    agenda = [...defaultData];
+                    document.getElementById('session-name-input').value = "";
+                    showToast("App updated or data invalid. Session reset.");
+                }
+            } else {
+                agenda = [...defaultData];
+                document.getElementById('session-name-input').value = "";
+            }
+            if(sessionName) document.getElementById('header-title').innerText = sessionName || "Session Master";
         }
 
         function restoreSession(state) {
@@ -665,189 +944,25 @@
             });
         }
 
-        // --- RENDER AGENDA (USING SAFE DOM) ---
-        function renderList() {
-            const listEl = document.getElementById('agenda-list');
-            const emptyEl = document.getElementById('empty-state');
-            listEl.innerHTML = ''; 
-            
-            if (agenda.length === 0) { emptyEl.classList.remove('hidden'); } else { emptyEl.classList.add('hidden'); }
-
-            let totalMins = 0;
-            agenda.forEach((item, index) => {
-                totalMins += item.duration;
-                const isEditing = index === editingIndex;
-                const activeClass = isEditing ? 'ring-2 ring-blue-400 bg-blue-50' : 'bg-white';
-                const isMuted = item.muted === true;
-                const isBreak = item.type === 'break';
-
-                const dragIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5 pointer-events-none", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" }, [
-                    el('path', { "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-width": "2", d: "M4 8h16M4 16h16" })
-                ]);
-                const editIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5", viewBox: "0 0 20 20", fill: "currentColor" }, [
-                    el('path', { d: "M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" })
-                ]);
-                const trashIcon = el('svg', { xmlns: "http://www.w3.org/2000/svg", class: "h-5 w-5", viewBox: "0 0 20 20", fill: "currentColor" }, [
-                    el('path', { "fill-rule": "evenodd", d: "M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z", "clip-rule": "evenodd" })
-                ]);
-
-                const leftContent = el('div', { className: "flex items-center gap-3 overflow-hidden flex-1" }, [
-                    el('div', { className: "drag-handle text-slate-300 flex items-center justify-center", title: "Drag to reorder" }, [dragIcon]),
-                    el('div', { className: "bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded min-w-[3rem] text-center" }, [`${item.duration}m`]),
-                    el('div', { className: "truncate font-medium text-slate-700" }, [isBreak ? '☕ ' : '', item.title])
-                ]);
-
-                const buttons = el('div', { className: "flex gap-1 items-center shrink-0 group" }, [
-                    el('button', { className: "reorder-btn text-slate-400 hover:text-blue-600", 'aria-label': "Move Up", type:"button", onclick: () => moveItem(index, -1) }, ["↑"]),
-                    el('button', { className: "reorder-btn text-slate-400 hover:text-blue-600", 'aria-label': "Move Down", type:"button", onclick: () => moveItem(index, 1) }, ["↓"]),
-                    el('button', { className: "transition p-1 hover:bg-slate-100 rounded ml-1", title: isMuted ? "Unmute" : "Mute", 'aria-label': isMuted ? "Unmute Section" : "Mute Section", type:"button", onclick: () => toggleMute(index) }, [isMuted ? '🔕' : '🔔']),
-                    el('button', { className: "text-slate-300 hover:text-blue-500 transition p-1", title: "Edit", 'aria-label': "Edit Section", type:"button", onclick: () => editItem(index) }, [editIcon]),
-                    el('button', { className: "text-slate-300 hover:text-red-500 transition p-1", title: "Remove", 'aria-label': "Remove Section", type:"button", onclick: () => removeItem(index) }, [trashIcon])
-                ]);
-
-                const li = el('li', { 
-                    className: `draggable-item flex items-center justify-between p-3 border border-slate-200 rounded-lg shadow-sm group ${isBreak ? 'border-l-4 border-l-amber-400' : ''} ${activeClass}`,
-                    draggable: 'true',
-                    'data-id': item.id
-                }, [leftContent, buttons]);
-
-                li.addEventListener('dragstart', handleDragStart);
-                li.addEventListener('dragover', handleDragOver);
-                li.addEventListener('dragend', handleDragEnd);
-                li.addEventListener('touchstart', handleTouchStart, {passive: false});
-                li.addEventListener('touchmove', handleTouchMove, {passive: false});
-                li.addEventListener('touchend', handleTouchEnd);
-
-                listEl.appendChild(li);
-            });
-            const h = Math.floor(totalMins / 60);
-            const m = totalMins % 60;
-            document.getElementById('total-time-display').innerText = `${h}h ${m}m`;
-        }
-
-        // --- ORDERING LOGIC ---
-        function moveItem(index, direction) {
-            const newIndex = index + direction;
-            if (newIndex < 0 || newIndex >= agenda.length) return;
-            const temp = agenda[index];
-            agenda[index] = agenda[newIndex];
-            agenda[newIndex] = temp;
+        // --- 9. TIMER & FLOW ---
+        
+        function loadSection(index) {
+            if (index >= agenda.length) { finishSession(); return; }
+            const item = agenda[index];
+            agenda[index].adjustment = 0;
+            timeLeft = item.duration * 60;
+            halfwayAnnounced = false; // Reset flag
+            if (!isPaused) { targetEndTime = Date.now() + (timeLeft * 1000); }
+            updateSectionUI(item);
+            updateDisplay();
             saveData();
-            renderList();
         }
 
-        // --- DRAG & DROP LOGIC ---
-        function handleDragStart(e) { 
-            // FIX: Enforce handle-only dragging on Desktop too for better text selection
-            if (!e.target.closest('.drag-handle')) {
-                // Do not prevent default here, let browser handle selection
-                return;
-            }
-            // If it IS a handle, start dragging
-            this.classList.add('dragging'); 
-            e.dataTransfer.effectAllowed = 'move'; 
-        }
-        function handleDragOver(e) { 
-            e.preventDefault(); 
-            const container = document.getElementById('agenda-list'); 
-            const after = getDragAfterElement(container, e.clientY); 
-            const draggable = document.querySelector('.dragging'); 
-            if (after == null) container.appendChild(draggable); 
-            else container.insertBefore(draggable, after); 
-        }
-        function handleDragEnd(e) { 
-            this.classList.remove('dragging'); 
-            saveNewOrder();
-        }
-
-        let touchDragItem = null;
-        let touchMoveThrottle = 0;
-        function handleTouchStart(e) {
-            if (!e.target.closest('.drag-handle')) return; 
-            touchDragItem = this;
-            this.classList.add('dragging');
-        }
-        function handleTouchMove(e) {
-            if (!touchDragItem) return;
-            e.preventDefault();
-            
-            // OPTIMIZATION: Throttle expensive layout recalculations
-            const now = Date.now();
-            if (now - touchMoveThrottle < 50) return; // 20fps cap for reordering
-            touchMoveThrottle = now;
-
-            const touch = e.touches[0];
-            const container = document.getElementById('agenda-list');
-            const after = getDragAfterElement(container, touch.clientY);
-            if (after == null) container.appendChild(touchDragItem); 
-            else container.insertBefore(touchDragItem, after); 
-        }
-        function handleTouchEnd(e) {
-            if (!touchDragItem) return;
-            touchDragItem.classList.remove('dragging');
-            touchDragItem = null;
-            saveNewOrder();
-        }
-
-        function getDragAfterElement(container, y) { 
-            const draggables = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
-            // FIX #4 Safer Loop Implementation
-            let closest = null;
-            let closestOffset = Number.NEGATIVE_INFINITY;
-
-            draggables.forEach(child => {
-                const box = child.getBoundingClientRect();
-                const offset = y - box.top - box.height / 2;
-                if (offset < 0 && offset > closestOffset) {
-                    closestOffset = offset;
-                    closest = child;
-                }
-            });
-            
-            return closest;
-        }
-
-        function saveNewOrder() {
-            const ids = Array.from(document.getElementById('agenda-list').children).map(li => li.getAttribute('data-id')); 
-            const newA = []; 
-            ids.forEach(id => { 
-                const item = agenda.find(i => i.id === id); 
-                if(item) newA.push(item); 
-            }); 
-            if(newA.length === agenda.length) { 
-                agenda = newA; 
-                saveData(); 
-                renderList(); 
-            } else {
-                renderList(); 
-            }
-        }
-
-        function saveItem() {
-            const title = document.getElementById('input-title').value.trim();
-            const duration = parseInt(document.getElementById('input-time').value);
-            const type = document.getElementById('input-type').value;
-            const finalTitle = (type === 'break' && !title) ? "Break" : title;
-            if (finalTitle && duration > 0) {
-                const newItem = { id: generateId(), title: finalTitle, duration, type, muted: false, adjustment: 0 };
-                if (editingIndex !== null) { const ex = agenda[editingIndex]; agenda[editingIndex] = { ...ex, title: finalTitle, duration, type }; cancelEdit(); } 
-                else { agenda.push(newItem); document.getElementById('input-title').value = ''; document.getElementById('input-time').value = ''; document.getElementById('input-title').focus(); }
-                saveData(); renderList();
-            }
-        }
-        function toggleMute(index) { agenda[index].muted = !agenda[index].muted; saveData(); renderList(); }
-        function editItem(index) { editingIndex = index; const item = agenda[index]; document.getElementById('input-title').value = item.title; document.getElementById('input-time').value = item.duration; document.getElementById('input-type').value = item.type; const btn = document.getElementById('btn-add-update'); btn.innerHTML = 'Update'; btn.classList.replace('bg-blue-600', 'bg-amber-500'); btn.classList.replace('hover:bg-blue-700', 'hover:bg-amber-600'); document.getElementById('btn-cancel-edit').classList.remove('hidden'); renderList(); }
-        function cancelEdit() { editingIndex = null; document.getElementById('input-title').value = ''; document.getElementById('input-time').value = ''; const btn = document.getElementById('btn-add-update'); btn.innerHTML = '+ Add'; btn.classList.replace('bg-amber-500', 'bg-blue-600'); btn.classList.replace('hover:bg-amber-600', 'hover:bg-blue-700'); document.getElementById('btn-cancel-edit').classList.add('hidden'); renderList(); }
-        function removeItem(index) { if (index === editingIndex) cancelEdit(); agenda.splice(index, 1); saveData(); renderList(); }
-
-        // --- TIMER & FLOW ---
         async function handleStartAction() {
             if (agenda.length === 0) return showAlert("Please add at least one section.");
             if (editingIndex !== null) cancelEdit();
             
             await ensureNotifications();
-            
-            // FIX: Unlock audio correctly
             unlockAudio();
 
             const picker = document.getElementById('start-time-picker');
@@ -868,21 +983,24 @@
             return false;
         }
         
-        // FIX: Audio Unlock function (Robust)
         function unlockAudio() {
-            if (document.hidden) return; // Fix #6: Reduce noise
+            if (document.hidden) return; 
             const audio = document.getElementById('chime');
             if (!audio) return;
             
-            // Ensure we have a valid source to unlock the context
-            if (!audio.src) {
-                audio.src = soundAssets[soundSettings.id];
-            }
+            if (!audio.src) audio.src = soundAssets[soundSettings.id];
+            
+            const originalVolume = audio.volume;
+            audio.volume = 0; // Silent unlock
 
             audio.play().then(() => {
                 audio.pause();
                 audio.currentTime = 0;
-            }).catch(e => console.log("Audio unlock failed (likely no user interaction)", e));
+                setTimeout(() => { audio.volume = originalVolume; }, 50);
+            }).catch(e => {
+                console.log("Audio unlock failed", e);
+                audio.volume = originalVolume;
+            });
         }
 
         function startScheduledCountdown(targetTime) {
@@ -961,37 +1079,6 @@
             hideToast();
         }
 
-        function loadSection(index) {
-            if (index >= agenda.length) { finishSession(); return; }
-            const item = agenda[index];
-            agenda[index].adjustment = 0;
-            timeLeft = item.duration * 60;
-            halfwayAnnounced = false; // Reset flag
-            if (!isPaused) { targetEndTime = Date.now() + (timeLeft * 1000); }
-            updateSectionUI(item);
-            updateDisplay();
-            saveData();
-        }
-
-        function updateSectionUI(item) {
-            const titleEl = document.getElementById('timer-title');
-            const bgEl = document.getElementById('timer-bg');
-            const badgeEl = document.getElementById('current-badge');
-            titleEl.innerText = item.title;
-            const nextItem = agenda[currentIndex + 1];
-            document.getElementById('next-title-text').innerText = nextItem ? `${nextItem.duration}m - ${nextItem.title}` : "Finish";
-            document.getElementById('allocated-display').innerText = `${item.duration}m`;
-            if (item.type === 'break') {
-                bgEl.className = "flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-500 relative bg-amber-50";
-                badgeEl.innerText = "☕ Break Time";
-                badgeEl.className = "px-3 py-1 rounded-full bg-amber-200 text-amber-800 text-xs font-bold uppercase tracking-wider mb-2";
-            } else {
-                bgEl.className = "flex-1 flex flex-col items-center justify-center p-8 transition-colors duration-500 relative bg-white";
-                badgeEl.innerText = "Current Section";
-                badgeEl.className = "px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wider mb-2";
-            }
-        }
-
         function adjustTime(seconds) {
             timeLeft += seconds;
             if (timeLeft < 0) timeLeft = 0;
@@ -1037,7 +1124,6 @@
             const currentItem = agenda[currentIndex];
             const halfTime = Math.floor((currentItem.duration * 60) / 2);
             
-            // Fuzzy Check for Halfway (Range 0-1s window)
             if (!halfwayAnnounced && timeLeft <= halfTime && timeLeft > halfTime - 2 && currentItem.duration >= 1 && !currentItem.muted) {
                  halfwayAnnounced = true;
                  showToast(`Halfway Mark!`);
@@ -1046,13 +1132,18 @@
                  if (document.hidden) sendSystemNotification("Halfway Mark!", `You are halfway through ${currentItem.title}`);
             }
 
+            // FIX: Update title immediately (runs even in background tabs)
+            updatePageTitle();
+
             if (timeLeft > 0) { 
-                // Optimize: don't save every tick, done via throttle below
+                // Optimize: heavy DOM updates only when visible via rAF
                 requestAnimationFrame(updateDisplay);
             } 
             else { 
                 timeLeft = 0; 
+                // Ensure final state is drawn
                 requestAnimationFrame(updateDisplay);
+                
                 if (!currentItem.muted) { 
                     playSound(); 
                     sendSystemNotification("Time's Up!", `${currentItem.title} has finished.`);
@@ -1061,17 +1152,22 @@
                 skipSection(); 
             }
             
-            // Throttle saves to every 5 seconds (10 ticks @ 0.5s each)
             tickCounter++;
             if(tickCounter % 10 === 0) saveData(); 
         }
 
-        function updateDisplay() {
-            const safeTime = Math.max(0, timeLeft);
-            const m = Math.floor(safeTime / 60).toString().padStart(2, '0');
-            const s = (safeTime % 60).toString().padStart(2, '0');
-            document.getElementById('timer-display').innerText = `${m}:${s}`;
+        // FIX: Dedicated title updater for background ticks
+        function updatePageTitle() {
+            const { m, s } = getFormattedTime(timeLeft);
             document.title = `${m}:${s} - ${sessionName}`;
+        }
+
+        function updateDisplay() {
+            // Also update title for consistency when interacting directly
+            updatePageTitle();
+
+            const { m, s } = getFormattedTime(timeLeft);
+            document.getElementById('timer-display').innerText = `${m}:${s}`;
             
             const adjSec = agenda[currentIndex].adjustment || 0;
             const diffEl = document.getElementById('diff-display');
@@ -1085,7 +1181,7 @@
             let elapsedPrior = 0;
             for(let i=0; i<currentIndex; i++) elapsedPrior += agenda[i].duration * 60;
             const currentTotalStart = (agenda[currentIndex].duration * 60) + (agenda[currentIndex].adjustment || 0);
-            const currentElapsed = Math.max(0, currentTotalStart - safeTime);
+            const currentElapsed = Math.max(0, currentTotalStart - timeLeft); // Fixed: ensure timeLeft is used for calc
             
             const percentage = calculateProgress(elapsedPrior + currentElapsed, totalDurationSec);
             document.getElementById('progress-bar').style.width = `${percentage}%`;
@@ -1095,7 +1191,11 @@
              const h = Math.floor((dist % (86400000)) / 3600000); 
              const m = Math.floor((dist % 3600000) / 60000); 
              const s = Math.floor((dist % 60000) / 1000);
-             document.getElementById('countdown-display').innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+             const timeStr = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+             
+             document.getElementById('countdown-display').innerText = timeStr;
+             // FIX: Also update title during countdown
+             document.title = `Starts in ${timeStr}`;
         }
 
         function finishSession() {
@@ -1119,30 +1219,6 @@
             }));
         }
 
-        // FIX: Safe DOM building
-        function renderSummary() {
-            const list = document.getElementById('summary-list');
-            list.innerHTML = '';
-            agenda.forEach(item => {
-                const allocatedMins = item.duration;
-                const actualMins = allocatedMins + ((item.adjustment || 0) / 60);
-                let badgeClass = "", badgeText = "", rowClass = "bg-white border-slate-200";
-                if (actualMins < (allocatedMins * 0.8)) { badgeClass = "bg-slate-100 text-slate-600 border-slate-200"; badgeText = "Early"; rowClass = "bg-slate-50 border-slate-200 opacity-80"; }
-                else if (actualMins > (allocatedMins + 2)) { badgeClass = "bg-red-50 text-red-600 border-red-200"; badgeText = "Overtime"; rowClass = "bg-red-50 border-red-200"; }
-                else { badgeClass = "bg-emerald-50 text-emerald-600 border-emerald-200"; badgeText = "On Time"; }
-                const displayActual = Math.round(actualMins * 10) / 10;
-                
-                const row = el('div', { className: `flex items-center justify-between p-4 rounded-lg border ${rowClass}` }, [
-                    el('div', {}, [
-                        el('div', { className: 'font-bold text-slate-800' }, [item.title]),
-                        el('div', { className: 'text-xs text-slate-500 mt-1' }, [`Allocated: ${allocatedMins}m · Actual: ${displayActual}m`])
-                    ]),
-                    el('div', { className: `px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}` }, [badgeText])
-                ]);
-                list.appendChild(row);
-            });
-        }
-
         function restartApp() {
             document.getElementById('summary-view').classList.add('hidden');
             document.getElementById('summary-view').classList.remove('flex');
@@ -1156,8 +1232,47 @@
                 new Notification(title, { body: body }); 
             }
         }
-        function showToast(msg) { const el = document.getElementById('toast-message'); el.innerText = msg; const c = document.getElementById('toast-container'); c.classList.remove('hidden', 'toast-exit'); c.classList.add('toast-enter'); if(toastTimeout) clearTimeout(toastTimeout); toastTimeout = setTimeout(hideToast, 30000); }
-        function hideToast() { const c = document.getElementById('toast-container'); c.classList.remove('toast-enter'); c.classList.add('toast-exit'); setTimeout(() => c.classList.add('hidden'), 500); }
+
+        function showToast(msg, type = 'neutral') { 
+            const el = document.getElementById('toast-message'); 
+            const titleEl = document.getElementById('toast-title');
+            const iconEl = document.getElementById('toast-icon');
+
+            el.innerText = msg; 
+
+            // Dynamic Styling based on type
+            if (type === 'error') {
+                titleEl.innerText = "Error";
+                titleEl.className = "font-bold text-sm uppercase tracking-wider text-red-400";
+                iconEl.innerText = "⚠️";
+            } else if (type === 'success') {
+                titleEl.innerText = "Success";
+                titleEl.className = "font-bold text-sm uppercase tracking-wider text-emerald-400";
+                iconEl.innerText = "✅";
+            } else {
+                titleEl.innerText = "Notice";
+                titleEl.className = "font-bold text-sm uppercase tracking-wider text-blue-400";
+                iconEl.innerText = "ℹ️";
+            }
+
+            const c = document.getElementById('toast-container'); 
+            c.classList.remove('hidden', 'toast-exit'); 
+            c.classList.add('toast-enter'); 
+            
+            if(toastTimeout) clearTimeout(toastTimeout); 
+            
+            // Auto-hide: Errors stay a bit longer (4s), Success/Info faster (2.5s)
+            const duration = type === 'error' ? 4000 : 2500;
+            toastTimeout = setTimeout(hideToast, duration); 
+        }
+
+        function hideToast() { 
+            const c = document.getElementById('toast-container'); 
+            c.classList.remove('toast-enter'); 
+            c.classList.add('toast-exit'); 
+            setTimeout(() => c.classList.add('hidden'), 500); 
+        }
+
         function onSoundTypeChange() { const id = document.getElementById('sound-select').value; const presetVol = soundPresets[id] || 0.5; document.getElementById('volume-slider').value = presetVol; updateSoundSettings(); }
         
         function updateSoundSettings() { 
@@ -1182,7 +1297,6 @@
         function playSound() { 
             stopSound(); 
             const audio = document.getElementById('chime'); 
-            // Graceful fallback if src is empty
             if(!audio.src || !audio.src.includes(soundSettings.id)) {
                 audio.src = soundAssets[soundSettings.id]; 
             }
@@ -1199,7 +1313,6 @@
             
             if(picker.value) { 
                 clearBtn.classList.remove('hidden'); 
-                // FIX: Change button text to indicate confirmation of schedule
                 mainBtnText.innerText = "Schedule"; 
             } else { 
                 clearBtn.classList.add('hidden'); 
@@ -1212,13 +1325,11 @@
             isPaused = !isPaused; 
             if (isPaused) { 
                 targetEndTime = null;
-                // FIX: Stop worker on pause to save battery
                 stopWorker();
             } else { 
                 targetEndTime = Date.now() + (timeLeft * 1000); 
                 startWorker();
                 requestWakeLock();
-                // FIX: Unlock audio on resume
                 unlockAudio();
             } 
             saveData(); 
@@ -1229,19 +1340,17 @@
         
         // --- CUSTOM MODAL LOGIC ---
         function showModal(title, message, actions) {
-            // ensure we know what element had focus before modal opened
             lastFocusedElement = lastFocusedElement || document.activeElement;
 
             const modal = document.getElementById('custom-modal');
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            document.body.style.overflow = 'hidden'; 
+
             const modalContent = document.getElementById('modal-content');
             const titleEl = document.getElementById('modal-title');
             const msgEl = document.getElementById('modal-message');
             const actionsEl = document.getElementById('modal-actions');
-
-            // semantics + block background scroll
-            modal.setAttribute('role', 'dialog');
-            modal.setAttribute('aria-modal', 'true');
-            document.body.style.overflow = 'hidden';
 
             titleEl.textContent = title;
             msgEl.textContent = message;
@@ -1257,7 +1366,6 @@
                 btn.textContent = action.label;
                 btn.type = "button";
                 btn.onclick = () => {
-                    // close modal first so callback can safely manipulate focus/UI
                     closeModal();
                     if(action.callback) action.callback();
                 };
@@ -1269,42 +1377,29 @@
             });
 
             modal.classList.remove('hidden');
-            void modal.offsetWidth; // force reflow to allow animation
+            void modal.offsetWidth; 
             modal.classList.add('modal-enter');
             modalContent.classList.add('modal-content-enter');
             
-            // focus the primary button if present, otherwise first
-            const btnToFocus = primaryBtn || firstBtn || lastBtn;
-            if (btnToFocus) btnToFocus.focus();
+            if (primaryBtn) primaryBtn.focus();
+            else if (firstBtn) firstBtn.focus();
 
-            // focus trap key handler (store on modal so we can remove it later)
-            const keyHandler = (e) => {
-                if(e.key === 'Escape') {
-                    e.preventDefault();
-                    closeModal();
-                    return;
-                }
+            modal.onkeydown = function(e) {
+                if(e.key === 'Escape') closeModal();
                 if(e.key === 'Tab') {
-                    const focusable = Array.from(actionsEl.querySelectorAll('button'));
-                    if (focusable.length === 0) return;
-                    const first = focusable[0];
-                    const last = focusable[focusable.length - 1];
-
                     if (e.shiftKey) {
-                        if (document.activeElement === first) { 
+                        if (document.activeElement === firstBtn) { 
                             e.preventDefault(); 
-                            last.focus(); 
+                            lastBtn.focus(); 
                         }
                     } else {
-                        if (document.activeElement === last) { 
+                        if (document.activeElement === lastBtn) { 
                             e.preventDefault(); 
-                            first.focus(); 
+                            firstBtn.focus(); 
                         }
                     }
                 }
             };
-            modal._keyHandler = keyHandler;
-            modal.addEventListener('keydown', keyHandler);
         }
 
         let lastFocusedElement = null;
@@ -1313,24 +1408,13 @@
             const modalContent = document.getElementById('modal-content');
             modal.classList.remove('modal-enter');
             modalContent.classList.remove('modal-content-enter');
-            
-            // remove key handler if present
-            if (modal._keyHandler) {
-                modal.removeEventListener('keydown', modal._keyHandler);
-                delete modal._keyHandler;
-            }
-
-            // restore scrolling immediately (animation will finish)
-            document.body.style.overflow = '';
-
+            document.body.style.overflow = ''; 
             setTimeout(() => {
                 modal.classList.add('hidden');
-                modal.removeAttribute('role');
-                modal.removeAttribute('aria-modal');
-                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                if(lastFocusedElement) {
                     lastFocusedElement.focus();
+                    lastFocusedElement = null; 
                 }
-                lastFocusedElement = null;
             }, 200);
         }
 
@@ -1369,6 +1453,11 @@
         // Init
         runSelfTests();
         loadData(); renderList(); checkScheduleInput(); 
+        
+        // FIX: Attach dragover to the container, not items, to fix gap issues
+        const listContainer = document.getElementById('agenda-list');
+        listContainer.addEventListener('dragover', handleDragOver);
+        
         document.getElementById('input-time').addEventListener('keypress', function (e) { if (e.key === 'Enter') saveItem(); });
 
     </script>
